@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="assets/logo-mark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -35,9 +35,9 @@
   </a>
   <div class="nav-links">
     <a href="#story" class="nav-link">Как работает</a>
-    <a href="#lock" class="nav-link">Шнек</a>
-    <a href="#offline" class="nav-link">Связь</a>
+    <a href="#story" class="nav-link">Чертёж</a>
     <a href="#roles" class="nav-link">Роли</a>
+    <a href="#tech" class="nav-link">Связь</a>
     <a href="#contact" class="nav-link">Контакт</a>
   </div>
   <div class="nav-actions">
@@ -55,9 +55,9 @@
 
 <div class="mobile-menu" id="mobileMenu">
   <a href="#story" class="nav-link">Как работает</a>
-  <a href="#lock" class="nav-link">Шнек</a>
-  <a href="#offline" class="nav-link">Связь</a>
+  <a href="#story" class="nav-link">Чертёж</a>
   <a href="#roles" class="nav-link">Роли</a>
+  <a href="#tech" class="nav-link">Связь</a>
   <a href="#contact" class="nav-link">Контакт</a>
   <div class="mobile-menu-actions">
     <a href="#contact" class="btn btn-primary">Оставить заявку</a>
@@ -94,13 +94,7 @@
       </div>
     </div>
 
-    <div class="hero-visual">
-      <img class="hero-photo" src="assets/hero-field.jpg" alt="Уборка пшеницы на поле">
-      <img class="hero-machines" src="assets/combine.png" alt="">
-      <div class="hero-float f1"><b>Бункер 70%</b> · запрос водителю</div>
-      <div class="hero-float f2"><b>Шнек закрыт</b> · ждёт подтверждение</div>
-      <div class="hero-float f3"><b>Без сети</b> · запись уже в телефоне</div>
-    </div>
+    <div class="hero-visual hero-schematic" aria-hidden="true"></div>
   </section>
 
   <div class="ticker-section" aria-hidden="true">
@@ -125,93 +119,17 @@
   </div>
 
   <section class="story" id="story">
-    <div class="container story-inner">
-      <div class="story-pin">
-        <div class="story-copy">
-          <p class="story-kicker" id="storyKicker">01 · Поле</p>
-          <h2 class="story-title" id="storyTitle">Уборка идёт — учёт тоже</h2>
-          <p class="story-text" id="storyText">Комбайн наполняет бункер. В приложении это не «примерно сколько выгрузили», а конкретная операция: кто отдал зерно и кто его принял.</p>
-          <ul class="story-points" id="storyPoints"></ul>
-          <div class="story-steps" id="storySteps" aria-label="Шаги истории"></div>
-        </div>
-
-        <div class="stage" id="stage" data-scene="harvest">
-          <img class="stage-photo photo-harvest" src="assets/hero-field.jpg" alt="">
-          <img class="stage-photo photo-lock" src="assets/auger-unload.jpg" alt="">
-          <img class="stage-photo photo-weigh" src="assets/weigh-qr.jpg" alt="">
-          <div class="stage-shade"></div>
-
-          <div class="diagram">
-            <div class="actor combine">
-              <img src="assets/combine.png" alt="">
-            </div>
-            <div class="actor truck">
-              <img src="assets/truck.png" alt="">
-            </div>
-            <div class="grain" aria-hidden="true"></div>
-            <div class="waves" aria-hidden="true"><span></span><span></span><span></span></div>
-
-            <div class="phone-card">
-              <div class="ph-top"><span>Комбайнёр</span><span>рядом</span></div>
-              <h4>Поиск машин</h4>
-              <p>КамАЗ в 12 метрах. Бункер 70% — отправить запрос.</p>
-              <span class="chip">Bluetooth / Wi-Fi</span>
-            </div>
-            <div class="phone-card b">
-              <div class="ph-top"><span>Перевозчик</span><span>рейс</span></div>
-              <h4>Запрос на выгрузку</h4>
-              <p>Комбайн предлагает зерно. Принять — и шнек сможет открыться.</p>
-              <span class="chip warn">Ждёт ответ</span>
-            </div>
-
-            <div class="lock-badge">
-              <div class="status"><i></i> <span id="lockLabel">Шнек заблокирован</span></div>
-              <small>Откроется только после согласия водителя</small>
-            </div>
-            <div class="term-badge">
-              <img src="assets/navtelecom-terminal.jpg" alt="Терминал на технике">
-              <div class="cap">
-                <b>Терминал Navtelecom</b>
-                <span id="termStatus">ожидает событие</span>
-              </div>
-            </div>
-
-            <div class="signal-card">
-              <b>Связь в поле</b>
-              <div class="bars"><i></i><i></i><i></i><i></i></div>
-              <p id="signalText" style="font-size:.78rem;color:var(--text-secondary)">Интернета нет. Работа продолжается.</p>
-            </div>
-            <div class="sync-badge">
-              <b>Синхронизация</b>
-              <div class="sync-row"><span class="pip"></span> Запись в телефоне</div>
-              <div class="sync-row"><span class="pip"></span> <span id="syncCloud">Облако ждёт сеть</span></div>
-            </div>
-
-            <div class="qr-badge">
-              <div class="qr-box" aria-hidden="true"></div>
-              <div>
-                <b>QR рейса</b>
-                <small>Все погрузки одним кодом<br>на весовой</small>
-              </div>
-            </div>
-
-            <div class="dash-panel">
-              <div class="kpi"><small>Рейсы сегодня</small><strong>24</strong><span>в работе 6</span></div>
-              <div class="kpi"><small>Выгрузки</small><strong>138</strong><span>без дублей</span></div>
-              <div class="kpi"><small>На весовой</small><strong>11</strong><span>ожидают вес</span></div>
-              <div class="kpi"><small>Шнек</small><strong>контроль</strong><span>терминал + приложение</span></div>
-            </div>
-          </div>
-          <div class="story-progress"><span id="storyBar"></span></div>
-        </div>
+    <div class="story-track">
+      <div class="story-sticky">
+        <div class="blueprint-stage bp-host" id="blueprint-stage"></div>
+        <aside class="story-caption">
+          <p class="story-kicker" id="storyKicker">01 · Чертёж</p>
+          <h2 class="story-title" id="storyTitle">Сначала на схеме появляется КамАЗ</h2>
+          <p class="story-text" id="storyText">Машина подъехала за зерном. Шнек пока закрыт — выгрузки ещё нет.</p>
+          <div class="story-steps" id="storySteps" aria-label="Шаги схемы"></div>
+        </aside>
+        <div class="story-progress"><span id="storyBar"></span></div>
       </div>
-
-      <div class="story-spacer" data-step="0"></div>
-      <div class="story-spacer" data-step="1"></div>
-      <div class="story-spacer" data-step="2" id="lock"></div>
-      <div class="story-spacer" data-step="3" id="offline"></div>
-      <div class="story-spacer" data-step="4"></div>
-      <div class="story-spacer" data-step="5"></div>
     </div>
   </section>
 
@@ -283,13 +201,7 @@
           </div>
         </article>
       </div>
-      <div class="plain-photo reveal">
-        <img src="assets/auger-unload.jpg" alt="Выгрузка зерна через шнек">
-        <div class="cap">
-          <b>Выгрузка только после согласия</b>
-          <span>Терминал на комбайне получает команду из приложения</span>
-        </div>
-      </div>
+      <div class="plain-photo reveal schematic-still"></div>
     </div>
   </section>
 
@@ -376,6 +288,6 @@
   </div>
 </footer>
 
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>

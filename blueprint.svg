@@ -1,0 +1,263 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 820" fill="none" aria-hidden="true">
+  <defs>
+    <pattern id="bp-grid-sm" width="8" height="8" patternUnits="userSpaceOnUse">
+      <path d="M8 0H0V8" stroke="rgba(127,240,150,.045)" stroke-width="1"/>
+    </pattern>
+    <pattern id="bp-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" stroke="rgba(127,240,150,.11)" stroke-width="1"/>
+    </pattern>
+    <filter id="bp-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect class="bp-paper" width="1440" height="820" fill="#050a07"/>
+  <rect class="bp-paper" width="1440" height="820" fill="url(#bp-grid-sm)"/>
+  <rect class="bp-paper" width="1440" height="820" fill="url(#bp-grid)"/>
+  <rect class="bp-paper" x="24" y="24" width="1392" height="772" stroke="rgba(127,240,150,.22)" stroke-width="1.2"/>
+  <rect class="bp-paper" x="30" y="30" width="1380" height="760" stroke="rgba(127,240,150,.08)" stroke-width="1"/>
+
+  <g class="bp-block" data-fade="title">
+    <rect x="48" y="48" width="300" height="86" stroke="rgba(127,240,150,.35)" stroke-width="1.2"/>
+    <path d="M48 74h300" stroke="rgba(127,240,150,.25)"/>
+    <text x="62" y="68" class="bp-mono sm">COMBINE AUTO  ·  ЛИСТ 01</text>
+    <text x="62" y="102" class="bp-mono">СХЕМА ВЫГРУЗКИ</text>
+    <text x="62" y="122" class="bp-mono dim">МАСШТАБ 1:120  ·  ПОЛЕ  ·  БЕЗ СЕТИ</text>
+  </g>
+
+  <g data-draw="ground" class="ink">
+    <path d="M64 688 H1376"/>
+    <path d="M64 688 v12 M144 688 v8 M224 688 v12 M304 688 v8 M384 688 v12 M464 688 v8 M544 688 v12 M624 688 v8 M704 688 v12 M784 688 v8 M864 688 v12 M944 688 v8 M1024 688 v12 M1104 688 v8 M1184 688 v12 M1264 688 v8 M1344 688 v12 M1376 688 v12"/>
+    <path class="dim-stroke" d="M64 700 H1376"/>
+  </g>
+  <g data-fade="ground-lab">
+    <text x="64" y="724" class="bp-mono sm dim">0</text>
+    <text x="700" y="724" class="bp-mono sm dim">ОСЬ ПОЛЯ</text>
+    <text x="1320" y="724" class="bp-mono sm dim">24 м</text>
+  </g>
+
+  <g id="combine" transform="translate(70, 318)">
+    <g data-draw="combine" class="ink">
+      <path d="M8 108 H108 V132 H8 Z"/>
+      <path d="M16 132 l4 16 M32 132 l4 16 M48 132 l4 16 M64 132 l4 16 M80 132 l4 16 M96 132 l4 16"/>
+      <path d="M8 108 l12 -18 H108"/>
+      <path d="M108 88 L160 58 V138 H108 Z"/>
+      <path d="M160 48 H372 L402 78 V148 H160 Z"/>
+      <path d="M200 48 V148 M240 48 V148 M280 48 V148 M320 48 V148 M360 48 V148"/>
+      <path d="M172 8 H262 L292 48 H172 Z"/>
+      <path d="M184 18 H250 L272 44 H184 Z"/>
+      <path d="M196 18 V44 M220 18 V44 M244 18 V44"/>
+      <path d="M292 48 H372"/>
+      <circle cx="196" cy="168" r="46"/>
+      <circle cx="196" cy="168" r="28"/>
+      <circle cx="196" cy="168" r="8"/>
+      <circle cx="338" cy="176" r="32"/>
+      <circle cx="338" cy="176" r="18"/>
+      <circle cx="338" cy="176" r="6"/>
+      <path d="M150 148 H402"/>
+    </g>
+    <g data-draw="auger" class="ink">
+      <path id="auger-tube" d="M372 70 H560 l36 18"/>
+      <path d="M372 82 H548 l28 14"/>
+      <circle cx="604" cy="96" r="14"/>
+      <circle cx="604" cy="96" r="6"/>
+      <path d="M590 96 h-10"/>
+    </g>
+    <g id="lock" transform="translate(430, 42)">
+      <g data-fade="lock-closed">
+        <path class="ink danger" d="M8 18 h28 v22 h-28 z"/>
+        <path class="ink danger" d="M14 18 v-10 a8 8 0 0 1 16 0 v10"/>
+        <circle class="ink danger" cx="22" cy="28" r="3"/>
+      </g>
+      <g data-fade="lock-open">
+        <path class="ink ok" d="M8 18 h28 v22 h-28 z"/>
+        <path class="ink ok" d="M14 18 v-4 a8 8 0 0 1 16 -6"/>
+        <path class="ink ok" d="M16 29 l4 5 10 -12"/>
+      </g>
+    </g>
+    <g id="terminal" transform="translate(300, 8)" data-draw="terminal" class="ink">
+      <rect x="0" y="18" width="64" height="40" rx="3"/>
+      <path d="M10 28 h18 M10 36 h28 M10 44 h12"/>
+      <circle cx="50" cy="30" r="4" class="led"/>
+      <circle cx="50" cy="42" r="4" class="led led-b"/>
+      <path d="M32 18 v-18"/>
+      <path d="M24 8 h16"/>
+      <path d="M28 2 h8"/>
+    </g>
+    <g data-fade="combine-lab">
+      <text x="160" y="-8" class="bp-mono">КОМБАЙН</text>
+      <text x="160" y="6" class="bp-mono sm dim">БУНКЕР  ·  ШНЕК  ·  ТЕРМИНАЛ</text>
+    </g>
+    <g data-fade="term-lab">
+      <text x="300" y="0" class="bp-mono sm cyan">NAVTELECOM</text>
+    </g>
+  </g>
+
+  <g id="kamaz" transform="translate(780, 348)">
+    <g data-draw="kamaz" class="ink">
+      <path d="M8 58 H118 V148 H8 Z"/>
+      <path d="M20 18 H108 L118 58 H8 L20 18 Z"/>
+      <path d="M28 28 H96 L104 54 H22 Z"/>
+      <path d="M8 90 H118"/>
+      <path d="M0 120 H8 V148 H0 Z"/>
+      <path d="M118 148 H548"/>
+      <path d="M118 136 H548"/>
+      <path d="M132 40 H520 L548 70 V148 H132 Z"/>
+      <path d="M160 40 V148 M220 40 V148 M280 40 V148 M340 40 V148 M400 40 V148 M460 40 V148"/>
+      <path d="M150 40 Q340 -8 510 40"/>
+      <circle cx="64" cy="176" r="36"/>
+      <circle cx="64" cy="176" r="20"/>
+      <circle cx="64" cy="176" r="6"/>
+      <circle cx="250" cy="176" r="36"/>
+      <circle cx="250" cy="176" r="20"/>
+      <circle cx="330" cy="176" r="36"/>
+      <circle cx="330" cy="176" r="20"/>
+      <circle cx="430" cy="176" r="36"/>
+      <circle cx="430" cy="176" r="20"/>
+      <circle cx="510" cy="176" r="36"/>
+      <circle cx="510" cy="176" r="20"/>
+    </g>
+    <g data-fade="kamaz-lab">
+      <text x="132" y="24" class="bp-mono">КАМАЗ</text>
+      <text x="132" y="40" class="bp-mono sm dim">ПЕРЕВОЗЧИК  ·  РЕЙС</text>
+    </g>
+  </g>
+
+  <g id="grain-stream" data-fade="grain">
+    <circle cx="0" cy="0" r="3.5" class="grain-dot" data-along="0.12"/>
+    <circle cx="0" cy="0" r="3.5" class="grain-dot" data-along="0.32"/>
+    <circle cx="0" cy="0" r="3.5" class="grain-dot" data-along="0.52"/>
+    <circle cx="0" cy="0" r="3.5" class="grain-dot" data-along="0.72"/>
+    <circle cx="0" cy="0" r="3.5" class="grain-dot" data-along="0.90"/>
+  </g>
+  <path id="grain-path" d="M442 388 C 520 370, 640 400, 820 430" stroke="none"/>
+
+  <g id="phone-c" transform="translate(228, 86)">
+    <g data-draw="phone-c" class="ink">
+      <rect x="0" y="0" width="78" height="148" rx="12"/>
+      <rect x="7" y="18" width="64" height="112" rx="4"/>
+      <circle cx="39" cy="138" r="5"/>
+      <path d="M30 8 h18"/>
+    </g>
+    <g class="screen" transform="translate(7,18)">
+      <rect width="64" height="112" rx="4" fill="rgba(6,18,10,.85)"/>
+      <g data-fade="ui-c-idle">
+        <text x="8" y="18" class="bp-mono sm dim">КОМБАЙНЁР</text>
+        <text x="8" y="40" class="bp-mono sm">ПОИСК</text>
+      </g>
+      <g data-fade="ui-c-send">
+        <text x="8" y="18" class="bp-mono sm">ЗАПРОС</text>
+        <text x="8" y="40" class="bp-mono">70%</text>
+        <rect x="8" y="52" width="48" height="8" rx="2" class="ink ok"/>
+        <text x="8" y="84" class="bp-mono sm wheat">ОТПРАВЛЕН</text>
+      </g>
+      <g data-fade="ui-c-ok">
+        <text x="8" y="22" class="bp-mono sm ok">ОТВЕТ</text>
+        <text x="8" y="48" class="bp-mono">ПРИНЯТ</text>
+        <text x="8" y="78" class="bp-mono sm cyan">В ТЕРМИНАЛ</text>
+      </g>
+    </g>
+    <text x="0" y="168" class="bp-mono sm" data-fade="phone-c-lab">ТЕЛ. КОМБАЙНА</text>
+  </g>
+
+  <g id="phone-k" transform="translate(1008, 78)">
+    <g data-draw="phone-k" class="ink">
+      <rect x="0" y="0" width="78" height="148" rx="12"/>
+      <rect x="7" y="18" width="64" height="112" rx="4"/>
+      <circle cx="39" cy="138" r="5"/>
+      <path d="M30 8 h18"/>
+    </g>
+    <g class="screen" transform="translate(7,18)">
+      <rect width="64" height="112" rx="4" fill="rgba(6,18,10,.85)"/>
+      <g data-fade="ui-k-idle">
+        <text x="8" y="20" class="bp-mono sm dim">РЕЙС</text>
+        <text x="8" y="44" class="bp-mono sm">ОЖИДАНИЕ</text>
+      </g>
+      <g data-fade="ui-k-note">
+        <text x="8" y="16" class="bp-mono sm wheat">УВЕДОМЛЕНИЕ</text>
+        <text x="8" y="36" class="bp-mono sm">ВЫГРУЗКА</text>
+        <text x="8" y="52" class="bp-mono sm dim">бункер 70%</text>
+        <g id="btn-accept">
+          <rect x="8" y="68" width="48" height="22" rx="4" class="btn-shape"/>
+          <text x="14" y="83" class="bp-mono sm">ПРИНЯТЬ</text>
+        </g>
+      </g>
+      <g data-fade="ui-k-ok">
+        <text x="8" y="28" class="bp-mono sm ok">ПРИНЯТО</text>
+        <path class="ink ok" d="M16 52 l10 10 22 -24"/>
+      </g>
+    </g>
+    <text x="0" y="168" class="bp-mono sm" data-fade="phone-k-lab">ТЕЛ. ВОДИТЕЛЯ</text>
+  </g>
+
+  <g id="tap" transform="translate(0,0)" data-fade="tap">
+    <circle r="11" class="tap-ring"/>
+    <circle r="4.5" fill="#e8c547"/>
+  </g>
+
+  <path id="path-out" class="signal-path" d="M306 160 C 470 40, 780 36, 1048 152"/>
+  <path id="path-back" class="signal-path" d="M1048 176 C 780 96, 470 110, 306 182"/>
+  <path id="path-bt" class="signal-path cyan-path" d="M306 210 C 292 250, 318 286, 348 338"/>
+
+  <g id="pkt-out" class="packet">
+    <circle r="6" fill="#e8c547"/>
+    <circle r="11" fill="none" stroke="#e8c547" stroke-width="1" opacity=".45"/>
+  </g>
+  <g id="pkt-back" class="packet">
+    <circle r="6" fill="#7cf08a"/>
+    <circle r="11" fill="none" stroke="#7cf08a" stroke-width="1" opacity=".45"/>
+  </g>
+  <g id="pkt-bt" class="packet">
+    <circle r="6" fill="#22d3ee"/>
+    <circle r="11" fill="none" stroke="#22d3ee" stroke-width="1" opacity=".45"/>
+  </g>
+
+  <g data-fade="lab-out">
+    <text x="620" y="48" class="bp-mono sm wheat">ЗАПРОС →</text>
+  </g>
+  <g data-fade="lab-back">
+    <text x="600" y="118" class="bp-mono sm ok">← ПРИНЯТО</text>
+  </g>
+  <g data-fade="lab-bt">
+    <text x="360" y="280" class="bp-mono sm cyan">BLUETOOTH</text>
+  </g>
+
+  <g id="bt-waves" data-fade="bt-waves">
+    <path class="wave" d="M348 338 m-18 -8 a22 22 0 0 1 0 16"/>
+    <path class="wave" d="M348 338 m-30 -16 a36 36 0 0 1 0 32"/>
+    <path class="wave" d="M348 338 m-42 -24 a50 50 0 0 1 0 48"/>
+  </g>
+
+  <g id="cloud" transform="translate(1188, 52)" data-draw="cloud" class="ink">
+    <path d="M36 42 h48 a18 18 0 0 0 2 -36 a22 22 0 0 0 -40 -6 a16 16 0 0 0 -18 18 a16 16 0 0 0 8 24 z"/>
+    <path d="M60 42 v28"/>
+    <path d="M50 58 h20 M46 66 h28"/>
+  </g>
+  <path id="path-cloud" class="signal-path" d="M1086 152 C 1140 120, 1180 100, 1248 86"/>
+  <g id="pkt-cloud" class="packet">
+    <circle r="5" fill="#7cf08a"/>
+  </g>
+  <g data-fade="offline-lab">
+    <text x="1188" y="140" class="bp-mono sm dim">НЕТ СЕТИ</text>
+  </g>
+  <g data-fade="wifi-lab">
+    <text x="1188" y="140" class="bp-mono sm ok">WI-FI  ·  В КАБИНЕТ</text>
+  </g>
+
+  <g id="weigh" transform="translate(980, 430)" data-draw="weigh" class="ink">
+    <path d="M40 90 H240"/>
+    <path d="M70 90 v40 H210 v-40"/>
+    <path d="M90 130 H190"/>
+    <rect x="0" y="0" width="70" height="70"/>
+    <path d="M8 8 h18 v18 h-18 z M44 8 h18 v18 h-18 z M8 44 h18 v18 h-18 z"/>
+    <path d="M32 12 h6 M32 20 h10 M44 44 h18 M12 32 h10"/>
+    <path d="M86 18 H220 M86 34 H180"/>
+  </g>
+  <g data-fade="weigh-lab">
+    <text x="980" y="420" class="bp-mono sm">ВЕСОВАЯ  ·  QR РЕЙСА</text>
+  </g>
+</svg>
