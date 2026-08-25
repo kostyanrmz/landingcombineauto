@@ -8,11 +8,6 @@ import * as THREE from "three";
 const BRAND = new THREE.Color("#3dcc4a");
 const BRAND2 = new THREE.Color("#7cf08a");
 const WHEAT = new THREE.Color("#e8c547");
-const SOIL = new THREE.Color("#1a2e18");
-const CROP = new THREE.Color("#6a9a4a");
-const CROP_DRY = new THREE.Color("#a8944a");
-const HORIZON = new THREE.Color("#2d5a38");
-const STAR = new THREE.Color("#b8d4c0");
 const NAV = new THREE.Color("#4da6ff");
 const LOCK = new THREE.Color("#f87171");
 
@@ -353,6 +348,36 @@ void main() {
 }
 `;
 
+/** Technique — shrink hard when far (no additive white-out); grow a bit when close */
+const techVert = /* glsl */ `
+attribute float aSeed;
+attribute float aAuger;
+attribute vec3 aScatter;
+uniform float uReveal;
+uniform float uAuger;
+uniform float uTime;
+uniform vec3 uMouse;
+uniform float uSize;
+uniform float uMouseStr;
+varying float vAlpha;
+void main() {
+  float appear = smoothstep(aSeed * 0.22, aSeed * 0.22 + 0.78, uReveal);
+  vec3 p = mix(aScatter, position, appear);
+  vec3 to = p - uMouse;
+  float d = length(to);
+  p += normalize(to + vec3(0.0001)) * uMouseStr * exp(-d * d * 1.7);
+  float tw = 0.9 + 0.1 * sin(uTime * (0.9 + aSeed * 1.6) + aSeed * 20.0);
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  float z = max(2.5, -mv.z);
+  // stronger falloff at distance: ~z^-1.35
+  float distScale = 22.0 / pow(z, 1.15);
+  gl_PointSize = clamp(uSize * tw * distScale, 0.5, 4.2);
+  gl_Position = projectionMatrix * mv;
+  float nearBoost = mix(1.06, 0.62, smoothstep(6.0, 20.0, z));
+  vAlpha = appear * tw * nearBoost;
+}
+`;
+
 const pipeVert = /* glsl */ `
 attribute float aSeed;
 attribute float aSeg;
@@ -366,11 +391,14 @@ void main() {
   float seg = smoothstep(aSeg - 0.08, aSeg + 0.04, uDeploy);
   float appear = smoothstep(aSeed * 0.15, aSeed * 0.15 + 0.7, uReveal) * seg;
   vec3 p = mix(aScatter, position, appear);
-  float tw = 0.82 + 0.18 * sin(uTime * 2.1 + aSeed * 40.0);
+  float tw = 0.88 + 0.12 * sin(uTime * 1.6 + aSeed * 30.0);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  gl_PointSize = clamp(uSize * tw * (50.0 / max(1.2, -mv.z)), 0.5, 3.2);
+  float z = max(2.5, -mv.z);
+  float distScale = 20.0 / pow(z, 1.15);
+  gl_PointSize = clamp(uSize * tw * distScale, 0.45, 3.8);
   gl_Position = projectionMatrix * mv;
-  vAlpha = appear * tw;
+  float nearBoost = mix(1.04, 0.65, smoothstep(6.0, 20.0, z));
+  vAlpha = appear * tw * nearBoost;
 }
 `;
 
@@ -386,7 +414,62 @@ void main() {
 }
 `;
 
-function VehicleCloud({ positions, color, reveal, size = 2.55, scatterR = 5.2, waveScatter = false, mouse }) {
+/** Stars / ambient — mesh3d-style: bright additive points in volume + sky */
+const starVert = /* glsl */ `
+attribute float aSeed;
+attribute float aBright;
+uniform float uTime;
+uniform float uSize;
+uniform float uPixelRatio;
+uniform vec3 uMouse;
+uniform float uMouseStr;
+varying float vAlpha;
+void main() {
+  vec3 p = position;
+  float elev = max(0.0, p.y);
+  vec3 to = p - uMouse;
+  float d = length(to.xz);
+  // Soft mouse wake only for low floating dust (not far sky)
+  float wake = step(elev, 14.0) * uMouseStr * exp(-d * d * 0.045);
+  p.y += wake * 1.1;
+  p.xz += normalize(to.xz + vec2(0.0001)) * wake * 0.55;
+
+  float tw = 0.7 + 0.3 * sin(uTime * (0.55 + aSeed * 1.8) + aSeed * 28.0);
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  float z = max(1.5, -mv.z);
+  float px = uSize * aBright * tw * uPixelRatio * (95.0 / z);
+  gl_PointSize = clamp(px, 0.7, 3.2);
+  gl_Position = projectionMatrix * mv;
+  vAlpha = aBright * tw;
+}
+`;
+
+const starFrag = /* glsl */ `
+uniform vec3 uColor;
+uniform sampler2D uMap;
+varying float vAlpha;
+void main() {
+  vec4 m = texture2D(uMap, gl_PointCoord);
+  float a = m.a * vAlpha;
+  if (a < 0.03) discard;
+  vec3 col = uColor * (0.65 + 0.9 * m.r);
+  gl_FragColor = vec4(col, a);
+}
+`;
+
+const techFrag = /* glsl */ `
+uniform vec3 uColor;
+uniform sampler2D uMap;
+varying float vAlpha;
+void main() {
+  vec4 m = texture2D(uMap, gl_PointCoord);
+  float a = m.a * vAlpha * 0.88;
+  if (a < 0.05) discard;
+  gl_FragColor = vec4(uColor, a);
+}
+`;
+
+function VehicleCloud({ positions, color, reveal, size = 2.6, scatterR = 5.2, waveScatter = false, mouse }) {
   const mat = useRef();
   const geo = useMemo(() => {
     const n = positions.length / 3;
@@ -408,7 +491,7 @@ function VehicleCloud({ positions, color, reveal, size = 2.55, scatterR = 5.2, w
       uTime: { value: 0 },
       uMouse: { value: new THREE.Vector3(99, 99, 99) },
       uSize: { value: size },
-      uMouseStr: { value: 0.16 },
+      uMouseStr: { value: 0.1 },
       uColor: { value: color },
       uMap: { value: map },
     }),
@@ -424,8 +507,8 @@ function VehicleCloud({ positions, color, reveal, size = 2.55, scatterR = 5.2, w
     <points geometry={geo} frustumCulled={false}>
       <shaderMaterial
         ref={mat}
-        vertexShader={vehicleVert}
-        fragmentShader={vehicleFrag}
+        vertexShader={techVert}
+        fragmentShader={techFrag}
         uniforms={uniforms}
         transparent
         depthWrite={false}
@@ -773,59 +856,136 @@ function Grain({ progressRef }) {
   );
 }
 
-function NightSky() {
+function heightAt(x, z) {
+  return (
+    Math.sin(x * 0.055) * 0.045 +
+    Math.sin(z * 0.07) * 0.035 +
+    Math.sin((x + z) * 0.04) * 0.025
+  );
+}
+
+/** Ground under vehicles (~wheel contact). Clouds centered; bottom ≈ y - 0.84 */
+const FIELD_Y = -0.02;
+
+function makeFieldBundle(size, segs, yBase = FIELD_Y) {
+  const surface = new THREE.PlaneGeometry(size, size, segs, segs);
+  surface.rotateX(-Math.PI / 2);
+  const pos = surface.attributes.position;
+  const base = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const y = yBase + heightAt(x, z);
+    pos.setY(i, y);
+    base[i * 3] = x;
+    base[i * 3 + 1] = y;
+    base[i * 3 + 2] = z;
+  }
+  pos.needsUpdate = true;
+  surface.computeVertexNormals();
+
+  const w = segs + 1;
+  const lineIdx = [];
+  for (let iz = 0; iz <= segs; iz++) {
+    for (let ix = 0; ix < segs; ix++) {
+      const i = iz * w + ix;
+      lineIdx.push(i, i + 1);
+    }
+  }
+  for (let ix = 0; ix <= segs; ix++) {
+    for (let iz = 0; iz < segs; iz++) {
+      const i = iz * w + ix;
+      lineIdx.push(i, i + w);
+    }
+  }
+  const wire = new THREE.BufferGeometry();
+  wire.setAttribute("position", pos);
+  wire.setIndex(lineIdx);
+
+  const n = pos.count;
+  const nodes = new THREE.BufferGeometry();
+  nodes.setAttribute("position", pos);
+  nodes.setAttribute("aScatter", new THREE.BufferAttribute(base.slice(), 3));
+  nodes.setAttribute("aSeed", new THREE.BufferAttribute(seeds(n), 1));
+  nodes.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(n), 1));
+
+  return { surface, wire, nodes, base, posAttr: pos };
+}
+
+/** mesh3d atmosphere: dense floating particles + bright sky dots */
+function StarDome({ mouseRef }) {
   const mat = useRef();
-  const { positions, seedsArr } = useMemo(() => {
-    const n = 9000;
+  const { gl } = useThree();
+  const geo = useMemo(() => {
+    const near = 5200;
+    const far = 3800;
+    const n = near + far;
     const positions = new Float32Array(n * 3);
     const seedsArr = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
+    const bright = new Float32Array(n);
+
+    // Volume dust around the scene (clearly visible “stars” in space)
+    for (let i = 0; i < near; i++) {
       const theta = Math.random() * Math.PI * 2;
-      const elev = Math.pow(Math.random(), 0.55);
-      const phi = elev * (Math.PI * 0.48);
-      const r = 38 + Math.random() * 55;
-      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = 1.2 + r * Math.cos(phi) * 0.72;
-      positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+      const r = 2.5 + Math.random() * 28;
+      const y = 0.6 + Math.pow(Math.random(), 0.55) * 16;
+      positions[i * 3] = Math.cos(theta) * r + (Math.random() - 0.5) * 6;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = Math.sin(theta) * r + (Math.random() - 0.5) * 6;
       seedsArr[i] = Math.random();
+      bright[i] = 0.55 + Math.random() * 0.9;
     }
-    return { positions, seedsArr };
-  }, []);
-  const geo = useMemo(() => {
+
+    // Far sky dome
+    for (let i = 0; i < far; i++) {
+      const j = near + i;
+      const theta = Math.random() * Math.PI * 2;
+      const elev = 0.12 + Math.pow(Math.random(), 0.7) * 0.88;
+      const phi = elev * Math.PI * 0.49;
+      const r = 32 + Math.random() * 55;
+      positions[j * 3] = r * Math.sin(phi) * Math.cos(theta);
+      positions[j * 3 + 1] = 4 + r * Math.cos(phi);
+      positions[j * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+      seedsArr[j] = Math.random();
+      bright[j] = 0.75 + Math.random() * 1.1;
+    }
+
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    g.setAttribute("aScatter", new THREE.BufferAttribute(positions.slice(), 3));
     g.setAttribute("aSeed", new THREE.BufferAttribute(seedsArr, 1));
-    g.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(positions.length / 3), 1));
+    g.setAttribute("aBright", new THREE.BufferAttribute(bright, 1));
     return g;
-  }, [positions, seedsArr]);
+  }, []);
   const map = useMemo(() => makeDot(), []);
   const uniforms = useMemo(
     () => ({
-      uReveal: { value: 1 },
-      uAuger: { value: 0 },
       uTime: { value: 0 },
+      uSize: { value: 0.72 },
+      uPixelRatio: { value: 1 },
       uMouse: { value: new THREE.Vector3(99, 99, 99) },
-      uSize: { value: 1.55 },
-      uMouseStr: { value: 0 },
-      uColor: { value: STAR },
+      uMouseStr: { value: 0.55 },
+      uColor: { value: new THREE.Color("#e8f5ec") },
       uMap: { value: map },
     }),
     [map]
   );
   useFrame(({ clock }) => {
-    if (!mat.current) return;
-    mat.current.uniforms.uTime.value = clock.elapsedTime * 0.35;
+    if (!mat.current || !mouseRef?.current) return;
+    mat.current.uniforms.uTime.value = clock.elapsedTime;
+    mat.current.uniforms.uPixelRatio.value = Math.min(gl.getPixelRatio(), 2);
+    mat.current.uniforms.uMouse.value.copy(mouseRef.current);
   });
   return (
-    <points geometry={geo} frustumCulled={false}>
+    <points geometry={geo} frustumCulled={false} renderOrder={-1}>
       <shaderMaterial
         ref={mat}
-        vertexShader={vehicleVert}
-        fragmentShader={vehicleFrag}
+        vertexShader={starVert}
+        fragmentShader={starFrag}
         uniforms={uniforms}
         transparent
         depthWrite={false}
+        depthTest={false}
+        fog={false}
         blending={THREE.AdditiveBlending}
         toneMapped={false}
       />
@@ -833,233 +993,187 @@ function NightSky() {
   );
 }
 
-function HorizonBand() {
-  const mat = useRef();
-  const geo = useMemo(() => {
-    const n = 4200;
-    const positions = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = 28 + Math.random() * 42;
-      positions[i * 3] = Math.cos(a) * r;
-      positions[i * 3 + 1] = -0.4 + Math.random() * 2.8 + Math.sin(a * 3) * 0.15;
-      positions[i * 3 + 2] = Math.sin(a) * r;
+/** mesh3d field: surface + grid + glow particles, reacts to mouse */
+function FieldMesh({ mouse }) {
+  const surfaceMat = useRef();
+  const wireMat = useRef();
+  const nodeMat = useRef();
+  const dustMat = useRef();
+
+  const { surface, wire, nodes, base, posAttr, dust } = useMemo(() => {
+    const bundle = makeFieldBundle(62, 56, FIELD_Y);
+    const basePts = bundle.base;
+    const dustPts = [];
+    for (let i = 0; i < basePts.length / 3; i++) {
+      if (Math.random() > 0.55) continue;
+      const x = basePts[i * 3] + (Math.random() - 0.5) * 0.35;
+      const z = basePts[i * 3 + 2] + (Math.random() - 0.5) * 0.35;
+      const y = basePts[i * 3 + 1] + 0.02 + Math.random() * 0.08;
+      dustPts.push(x, y, z);
     }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    g.setAttribute("aScatter", new THREE.BufferAttribute(positions.slice(), 3));
-    g.setAttribute("aSeed", new THREE.BufferAttribute(seeds(n), 1));
-    g.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(n), 1));
-    return g;
+    const dustArr = new Float32Array(dustPts);
+    const dn = dustArr.length / 3;
+    const dust = new THREE.BufferGeometry();
+    dust.setAttribute("position", new THREE.BufferAttribute(dustArr, 3));
+    dust.setAttribute("aScatter", new THREE.BufferAttribute(dustArr.slice(), 3));
+    dust.setAttribute("aSeed", new THREE.BufferAttribute(seeds(dn), 1));
+    dust.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(dn), 1));
+    return { ...bundle, dust };
   }, []);
+
   const map = useMemo(() => makeDot(), []);
-  const uniforms = useMemo(
+  const nodeUniforms = useMemo(
     () => ({
       uReveal: { value: 1 },
       uAuger: { value: 0 },
       uTime: { value: 0 },
       uMouse: { value: new THREE.Vector3(99, 99, 99) },
-      uSize: { value: 3.4 },
-      uMouseStr: { value: 0 },
-      uColor: { value: HORIZON },
+      uSize: { value: 1.05 },
+      uMouseStr: { value: 0.42 },
+      uColor: { value: BRAND2 },
       uMap: { value: map },
     }),
     [map]
   );
+  const dustUniforms = useMemo(
+    () => ({
+      uReveal: { value: 1 },
+      uAuger: { value: 0 },
+      uTime: { value: 0 },
+      uMouse: { value: new THREE.Vector3(99, 99, 99) },
+      uSize: { value: 1.35 },
+      uMouseStr: { value: 0.48 },
+      uColor: { value: new THREE.Color("#7dff95") },
+      uMap: { value: map },
+    }),
+    [map]
+  );
+
   useFrame(({ clock }) => {
-    if (!mat.current) return;
-    mat.current.uniforms.uTime.value = clock.elapsedTime * 0.2;
-  });
-  return (
-    <points geometry={geo} frustumCulled={false}>
-      <shaderMaterial
-        ref={mat}
-        vertexShader={vehicleVert}
-        fragmentShader={vehicleFrag}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        toneMapped={false}
-      />
-    </points>
-  );
-}
-
-function FieldGround({ mouse }) {
-  const cropMat = useRef();
-  const soilMat = useRef();
-  const { cropGeo, soilGeo } = useMemo(() => {
-    const crop = [];
-    const soil = [];
-    const push = (arr, x, y, z) => arr.push(x, y, z);
-
-    for (let row = -90; row <= 90; row++) {
-      const z = row * 0.38;
-      const furrow = (row % 3) * 0.012;
-      for (let col = -110; col <= 110; col++) {
-        if (Math.random() < 0.18) continue;
-        const x = col * 0.32 + (Math.random() - 0.5) * 0.12;
-        const wave = Math.sin(x * 0.05 + z * 0.04) * 0.04;
-        const y = -0.98 + furrow + wave + (Math.random() - 0.5) * 0.02;
-        if (Math.abs(col) % 4 === 0) {
-          push(soil, x, y - 0.02, z + (Math.random() - 0.5) * 0.08);
-        } else {
-          push(crop, x, y + Math.random() * 0.08, z + (Math.random() - 0.5) * 0.1);
-        }
-      }
+    const t = clock.elapsedTime;
+    const m = mouse.current;
+    const arr = posAttr.array;
+    for (let i = 0; i < posAttr.count; i++) {
+      const bx = base[i * 3];
+      const by = base[i * 3 + 1];
+      const bz = base[i * 3 + 2];
+      const dx = bx - m.x;
+      const dz = bz - m.z;
+      const d2 = dx * dx + dz * dz;
+      const push = Math.exp(-d2 * 0.12) * 0.55;
+      const lift = Math.exp(-d2 * 0.09) * 0.38;
+      arr[i * 3] = bx + dx * push * 0.08;
+      arr[i * 3 + 1] = by + lift + Math.sin(t * 1.1 + bx * 0.2 + bz * 0.15) * 0.012;
+      arr[i * 3 + 2] = bz + dz * push * 0.08;
     }
+    posAttr.needsUpdate = true;
 
-    // distant tree-line / shelterbelt — low, sparse, not corridor walls
-    for (let a = 0; a < Math.PI * 2; a += 0.045) {
-      const r = 34 + Math.random() * 8;
-      const cx = Math.cos(a) * r;
-      const cz = Math.sin(a) * r;
-      const h = 0.6 + Math.random() * 2.4;
-      for (let k = 0; k < 7; k++) {
-        if (Math.random() < 0.35) continue;
-        push(
-          crop,
-          cx + (Math.random() - 0.5) * 0.8,
-          -0.7 + (k / 6) * h,
-          cz + (Math.random() - 0.5) * 0.8
-        );
-      }
+    if (wireMat.current) wireMat.current.opacity = 0.16 + Math.sin(t * 0.4) * 0.03;
+    if (surfaceMat.current) surfaceMat.current.opacity = 0.14 + Math.sin(t * 0.25) * 0.02;
+    if (nodeMat.current) {
+      nodeMat.current.uniforms.uTime.value = t;
+      nodeMat.current.uniforms.uMouse.value.copy(m);
     }
-
-    const make = (pts) => {
-      const positions = new Float32Array(pts);
-      const n = positions.length / 3;
-      const g = new THREE.BufferGeometry();
-      g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-      g.setAttribute("aScatter", new THREE.BufferAttribute(positions.slice(), 3));
-      g.setAttribute("aSeed", new THREE.BufferAttribute(seeds(n), 1));
-      g.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(n), 1));
-      return g;
-    };
-    return { cropGeo: make(crop), soilGeo: make(soil) };
-  }, []);
-  const map = useMemo(() => makeDot(), []);
-  const cropUniforms = useMemo(
-    () => ({
-      uReveal: { value: 1 },
-      uAuger: { value: 0 },
-      uTime: { value: 0 },
-      uMouse: { value: new THREE.Vector3(99, 99, 99) },
-      uSize: { value: 2.05 },
-      uMouseStr: { value: 0.22 },
-      uColor: { value: CROP },
-      uMap: { value: map },
-    }),
-    [map]
-  );
-  const soilUniforms = useMemo(
-    () => ({
-      uReveal: { value: 1 },
-      uAuger: { value: 0 },
-      uTime: { value: 0 },
-      uMouse: { value: new THREE.Vector3(99, 99, 99) },
-      uSize: { value: 1.7 },
-      uMouseStr: { value: 0.12 },
-      uColor: { value: SOIL },
-      uMap: { value: map },
-    }),
-    [map]
-  );
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime * 0.25;
-    if (cropMat.current) {
-      cropMat.current.uniforms.uTime.value = t;
-      cropMat.current.uniforms.uMouse.value.copy(mouse.current);
-    }
-    if (soilMat.current) {
-      soilMat.current.uniforms.uTime.value = t;
-      soilMat.current.uniforms.uMouse.value.copy(mouse.current);
+    if (dustMat.current) {
+      dustMat.current.uniforms.uTime.value = t * 0.6;
+      dustMat.current.uniforms.uMouse.value.copy(m);
     }
   });
+
   return (
-    <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.05, 0]} receiveShadow={false}>
-        <circleGeometry args={[55, 64]} />
-        <meshBasicMaterial color="#060a07" transparent opacity={0.92} depthWrite={false} />
-      </mesh>
-      <points geometry={soilGeo} frustumCulled={false}>
-        <shaderMaterial
-          ref={soilMat}
-          vertexShader={vehicleVert}
-          fragmentShader={vehicleFrag}
-          uniforms={soilUniforms}
+    <group>
+      <mesh geometry={surface} frustumCulled={false}>
+        <meshBasicMaterial
+          ref={surfaceMat}
+          color="#040a06"
           transparent
+          opacity={0.16}
           depthWrite={false}
-          blending={THREE.NormalBlending}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <lineSegments geometry={wire} frustumCulled={false}>
+        <lineBasicMaterial
+          ref={wireMat}
+          color="#2f9a40"
+          transparent
+          opacity={0.18}
+          depthWrite={false}
           toneMapped={false}
         />
-      </points>
-      <points geometry={cropGeo} frustumCulled={false}>
+      </lineSegments>
+      <points geometry={nodes} frustumCulled={false}>
         <shaderMaterial
-          ref={cropMat}
+          ref={nodeMat}
           vertexShader={vehicleVert}
           fragmentShader={vehicleFrag}
-          uniforms={cropUniforms}
+          uniforms={nodeUniforms}
           transparent
           depthWrite={false}
           blending={THREE.AdditiveBlending}
           toneMapped={false}
         />
       </points>
-    </>
+      <points geometry={dust} frustumCulled={false}>
+        <shaderMaterial
+          ref={dustMat}
+          vertexShader={vehicleVert}
+          fragmentShader={vehicleFrag}
+          uniforms={dustUniforms}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </points>
+    </group>
   );
 }
 
-function DustMotes({ mouse }) {
-  const mat = useRef();
-  const geo = useMemo(() => {
-    const n = 1800;
-    const positions = new Float32Array(n * 3);
-    for (let i = 0; i < n; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 40;
-      positions[i * 3 + 1] = Math.random() * 6;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 40;
+/** Thin far ring at horizon — does not cover the sky */
+function HorizonMesh() {
+  const wireMat = useRef();
+  const wire = useMemo(() => {
+    const segs = 96;
+    const rings = 3;
+    const positions = [];
+    const indices = [];
+    for (let r = 0; r <= rings; r++) {
+      const radius = 36 + r * 3.2;
+      const elev = FIELD_Y + 0.05 + (r / rings) * 0.55;
+      for (let i = 0; i <= segs; i++) {
+        const a = (i / segs) * Math.PI * 2;
+        const bump = Math.sin(a * 4 + r) * 0.12;
+        positions.push(Math.cos(a) * radius, elev + bump, Math.sin(a) * radius);
+      }
+    }
+    const stride = segs + 1;
+    for (let r = 0; r < rings; r++) {
+      for (let i = 0; i < segs; i++) {
+        const a = r * stride + i;
+        indices.push(a, a + 1, a, a + stride);
+      }
     }
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    g.setAttribute("aScatter", new THREE.BufferAttribute(positions.slice(), 3));
-    g.setAttribute("aSeed", new THREE.BufferAttribute(seeds(n), 1));
-    g.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(n), 1));
+    g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    g.setIndex(indices);
     return g;
   }, []);
-  const map = useMemo(() => makeDot(), []);
-  const uniforms = useMemo(
-    () => ({
-      uReveal: { value: 1 },
-      uAuger: { value: 0 },
-      uTime: { value: 0 },
-      uMouse: { value: new THREE.Vector3(99, 99, 99) },
-      uSize: { value: 1.2 },
-      uMouseStr: { value: 0.55 },
-      uColor: { value: CROP_DRY },
-      uMap: { value: map },
-    }),
-    [map]
-  );
   useFrame(({ clock }) => {
-    if (!mat.current) return;
-    mat.current.uniforms.uTime.value = clock.elapsedTime * 0.5;
-    mat.current.uniforms.uMouse.value.copy(mouse.current);
+    if (wireMat.current) wireMat.current.opacity = 0.1 + Math.sin(clock.elapsedTime * 0.35) * 0.02;
   });
   return (
-    <points geometry={geo} frustumCulled={false}>
-      <shaderMaterial
-        ref={mat}
-        vertexShader={vehicleVert}
-        fragmentShader={vehicleFrag}
-        uniforms={uniforms}
+    <lineSegments geometry={wire} frustumCulled={false}>
+      <lineBasicMaterial
+        ref={wireMat}
+        color="#1f6b2e"
         transparent
+        opacity={0.12}
         depthWrite={false}
-        blending={THREE.AdditiveBlending}
         toneMapped={false}
+        fog
       />
-    </points>
+    </lineSegments>
   );
 }
 
@@ -1096,7 +1210,7 @@ function CameraRig({ progressRef }) {
 function MousePlane({ mouse }) {
   const { camera, pointer } = useThree();
   const ray = useMemo(() => new THREE.Raycaster(), []);
-  const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.15), []);
+  const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), -FIELD_Y), []);
   const hit = useMemo(() => new THREE.Vector3(), []);
   useFrame(() => {
     ray.setFromCamera(pointer, camera);
@@ -1182,14 +1296,13 @@ export default function World({ progressRef }) {
 
   return (
     <>
-      <color attach="background" args={["#020504"]} />
-      <fog attach="fog" args={["#020504", 22, 78]} />
+      <color attach="background" args={["#05070a"]} />
+      <fog attach="fog" args={["#05070a", 48, 110]} />
       <CameraRig progressRef={progressRef} />
       <MousePlane mouse={mouse} />
-      <NightSky />
-      <HorizonBand />
-      <FieldGround mouse={mouse} />
-      <DustMotes mouse={mouse} />
+      <StarDome mouseRef={mouse} />
+      <FieldMesh mouse={mouse} />
+      <HorizonMesh />
       <Shockwave origin={COMBINE} progressRef={progressRef} t0={0.19} t1={0.32} tFade={0.38} />
       <Shockwave origin={TRUCK_FAR} progressRef={progressRef} t0={0.52} t1={0.58} tFade={0.62} maxDist={WAVE_DIST * 0.85} />
 
@@ -1200,7 +1313,7 @@ export default function World({ progressRef }) {
             color={BRAND}
             reveal={combineReveal}
             mouse={mouse}
-            size={2.55}
+            size={2.45}
           />
         )}
         <MarkerCluster local={TERMINAL_LOCAL} color={NAV} visible={terminalVis} radius={0.06} count={360} size={0.048} />
@@ -1215,7 +1328,7 @@ export default function World({ progressRef }) {
             color={new THREE.Color("#6ee07a")}
             reveal={truckFarReveal}
             mouse={mouse}
-            size={2.35}
+            size={2.4}
             scatterR={8.8}
             waveScatter
           />
@@ -1229,7 +1342,7 @@ export default function World({ progressRef }) {
             color={new THREE.Color("#6ee07a")}
             reveal={truckNearReveal}
             mouse={mouse}
-            size={2.35}
+            size={2.15}
             scatterR={3.6}
           />
         )}

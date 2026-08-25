@@ -41,7 +41,7 @@ export default function StorySection() {
         <Canvas
           dpr={dpr}
           gl={{ antialias: false, alpha: false, powerPreference: "high-performance" }}
-          camera={{ fov: 36, near: 0.1, far: 140, position: [-10.5, 2.9, 9] }}
+          camera={{ fov: 36, near: 0.1, far: 220, position: [-10.5, 2.9, 9] }}
         >
           <World progressRef={progressRef} />
         </Canvas>
