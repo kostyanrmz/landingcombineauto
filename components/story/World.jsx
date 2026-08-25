@@ -8,8 +8,11 @@ import * as THREE from "three";
 const BRAND = new THREE.Color("#3dcc4a");
 const BRAND2 = new THREE.Color("#7cf08a");
 const WHEAT = new THREE.Color("#e8c547");
-const STAR = new THREE.Color("#c8ead4");
-const WALL = new THREE.Color("#5fd873");
+const SOIL = new THREE.Color("#1a2e18");
+const CROP = new THREE.Color("#6a9a4a");
+const CROP_DRY = new THREE.Color("#a8944a");
+const HORIZON = new THREE.Color("#2d5a38");
+const STAR = new THREE.Color("#b8d4c0");
 const NAV = new THREE.Color("#4da6ff");
 const LOCK = new THREE.Color("#f87171");
 
@@ -770,19 +773,19 @@ function Grain({ progressRef }) {
   );
 }
 
-function StarDome({ mouse }) {
+function NightSky() {
   const mat = useRef();
   const { positions, seedsArr } = useMemo(() => {
-    const n = 18000;
+    const n = 9000;
     const positions = new Float32Array(n * 3);
     const seedsArr = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      const layer = Math.random();
-      const r = layer < 0.4 ? 5 + Math.random() * 16 : 18 + Math.random() * 45;
       const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
+      const elev = Math.pow(Math.random(), 0.55);
+      const phi = elev * (Math.PI * 0.48);
+      const r = 38 + Math.random() * 55;
       positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = r * Math.cos(phi) * 0.5 + 2 + Math.random() * 5;
+      positions[i * 3 + 1] = 1.2 + r * Math.cos(phi) * 0.72;
       positions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
       seedsArr[i] = Math.random();
     }
@@ -802,9 +805,9 @@ function StarDome({ mouse }) {
       uReveal: { value: 1 },
       uAuger: { value: 0 },
       uTime: { value: 0 },
-      uMouse: { value: new THREE.Vector3() },
-      uSize: { value: 2.0 },
-      uMouseStr: { value: 0.7 },
+      uMouse: { value: new THREE.Vector3(99, 99, 99) },
+      uSize: { value: 1.55 },
+      uMouseStr: { value: 0 },
       uColor: { value: STAR },
       uMap: { value: map },
     }),
@@ -812,8 +815,7 @@ function StarDome({ mouse }) {
   );
   useFrame(({ clock }) => {
     if (!mat.current) return;
-    mat.current.uniforms.uTime.value = clock.elapsedTime;
-    mat.current.uniforms.uMouse.value.copy(mouse.current);
+    mat.current.uniforms.uTime.value = clock.elapsedTime * 0.35;
   });
   return (
     <points geometry={geo} frustumCulled={false}>
@@ -831,32 +833,18 @@ function StarDome({ mouse }) {
   );
 }
 
-function Ground({ mouse }) {
+function HorizonBand() {
   const mat = useRef();
   const geo = useMemo(() => {
-    const pts = [];
-    const push = (x, y, z) => pts.push(x, y, z);
-    for (let ix = -130; ix <= 130; ix++) {
-      for (let iz = -95; iz <= 95; iz++) {
-        const x = ix * 0.2;
-        const z = iz * 0.2;
-        const y = -1.02 + Math.sin(x * 0.08) * 0.025 + Math.sin(z * 0.11) * 0.02;
-        push(x + (Math.random() - 0.5) * 0.04, y, z + (Math.random() - 0.5) * 0.04);
-      }
+    const n = 4200;
+    const positions = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 28 + Math.random() * 42;
+      positions[i * 3] = Math.cos(a) * r;
+      positions[i * 3 + 1] = -0.4 + Math.random() * 2.8 + Math.sin(a * 3) * 0.15;
+      positions[i * 3 + 2] = Math.sin(a) * r;
     }
-    for (let side of [-1, 1]) {
-      for (let iz = -90; iz <= 90; iz++) {
-        for (let iy = 0; iy <= 48; iy++) {
-          if (Math.random() < 0.3) continue;
-          const z = iz * 0.24;
-          const y = -0.2 + iy * 0.17;
-          const x = side * (12 + y * 0.55 + Math.random() * 0.4);
-          push(x, y, z);
-        }
-      }
-    }
-    const positions = new Float32Array(pts);
-    const n = positions.length / 3;
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     g.setAttribute("aScatter", new THREE.BufferAttribute(positions.slice(), 3));
@@ -870,17 +858,193 @@ function Ground({ mouse }) {
       uReveal: { value: 1 },
       uAuger: { value: 0 },
       uTime: { value: 0 },
-      uMouse: { value: new THREE.Vector3() },
-      uSize: { value: 2.4 },
-      uMouseStr: { value: 0.4 },
-      uColor: { value: WALL },
+      uMouse: { value: new THREE.Vector3(99, 99, 99) },
+      uSize: { value: 3.4 },
+      uMouseStr: { value: 0 },
+      uColor: { value: HORIZON },
       uMap: { value: map },
     }),
     [map]
   );
   useFrame(({ clock }) => {
     if (!mat.current) return;
-    mat.current.uniforms.uTime.value = clock.elapsedTime * 0.4;
+    mat.current.uniforms.uTime.value = clock.elapsedTime * 0.2;
+  });
+  return (
+    <points geometry={geo} frustumCulled={false}>
+      <shaderMaterial
+        ref={mat}
+        vertexShader={vehicleVert}
+        fragmentShader={vehicleFrag}
+        uniforms={uniforms}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        toneMapped={false}
+      />
+    </points>
+  );
+}
+
+function FieldGround({ mouse }) {
+  const cropMat = useRef();
+  const soilMat = useRef();
+  const { cropGeo, soilGeo } = useMemo(() => {
+    const crop = [];
+    const soil = [];
+    const push = (arr, x, y, z) => arr.push(x, y, z);
+
+    for (let row = -90; row <= 90; row++) {
+      const z = row * 0.38;
+      const furrow = (row % 3) * 0.012;
+      for (let col = -110; col <= 110; col++) {
+        if (Math.random() < 0.18) continue;
+        const x = col * 0.32 + (Math.random() - 0.5) * 0.12;
+        const wave = Math.sin(x * 0.05 + z * 0.04) * 0.04;
+        const y = -0.98 + furrow + wave + (Math.random() - 0.5) * 0.02;
+        if (Math.abs(col) % 4 === 0) {
+          push(soil, x, y - 0.02, z + (Math.random() - 0.5) * 0.08);
+        } else {
+          push(crop, x, y + Math.random() * 0.08, z + (Math.random() - 0.5) * 0.1);
+        }
+      }
+    }
+
+    // distant tree-line / shelterbelt — low, sparse, not corridor walls
+    for (let a = 0; a < Math.PI * 2; a += 0.045) {
+      const r = 34 + Math.random() * 8;
+      const cx = Math.cos(a) * r;
+      const cz = Math.sin(a) * r;
+      const h = 0.6 + Math.random() * 2.4;
+      for (let k = 0; k < 7; k++) {
+        if (Math.random() < 0.35) continue;
+        push(
+          crop,
+          cx + (Math.random() - 0.5) * 0.8,
+          -0.7 + (k / 6) * h,
+          cz + (Math.random() - 0.5) * 0.8
+        );
+      }
+    }
+
+    const make = (pts) => {
+      const positions = new Float32Array(pts);
+      const n = positions.length / 3;
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      g.setAttribute("aScatter", new THREE.BufferAttribute(positions.slice(), 3));
+      g.setAttribute("aSeed", new THREE.BufferAttribute(seeds(n), 1));
+      g.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(n), 1));
+      return g;
+    };
+    return { cropGeo: make(crop), soilGeo: make(soil) };
+  }, []);
+  const map = useMemo(() => makeDot(), []);
+  const cropUniforms = useMemo(
+    () => ({
+      uReveal: { value: 1 },
+      uAuger: { value: 0 },
+      uTime: { value: 0 },
+      uMouse: { value: new THREE.Vector3(99, 99, 99) },
+      uSize: { value: 2.05 },
+      uMouseStr: { value: 0.22 },
+      uColor: { value: CROP },
+      uMap: { value: map },
+    }),
+    [map]
+  );
+  const soilUniforms = useMemo(
+    () => ({
+      uReveal: { value: 1 },
+      uAuger: { value: 0 },
+      uTime: { value: 0 },
+      uMouse: { value: new THREE.Vector3(99, 99, 99) },
+      uSize: { value: 1.7 },
+      uMouseStr: { value: 0.12 },
+      uColor: { value: SOIL },
+      uMap: { value: map },
+    }),
+    [map]
+  );
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime * 0.25;
+    if (cropMat.current) {
+      cropMat.current.uniforms.uTime.value = t;
+      cropMat.current.uniforms.uMouse.value.copy(mouse.current);
+    }
+    if (soilMat.current) {
+      soilMat.current.uniforms.uTime.value = t;
+      soilMat.current.uniforms.uMouse.value.copy(mouse.current);
+    }
+  });
+  return (
+    <>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.05, 0]} receiveShadow={false}>
+        <circleGeometry args={[55, 64]} />
+        <meshBasicMaterial color="#060a07" transparent opacity={0.92} depthWrite={false} />
+      </mesh>
+      <points geometry={soilGeo} frustumCulled={false}>
+        <shaderMaterial
+          ref={soilMat}
+          vertexShader={vehicleVert}
+          fragmentShader={vehicleFrag}
+          uniforms={soilUniforms}
+          transparent
+          depthWrite={false}
+          blending={THREE.NormalBlending}
+          toneMapped={false}
+        />
+      </points>
+      <points geometry={cropGeo} frustumCulled={false}>
+        <shaderMaterial
+          ref={cropMat}
+          vertexShader={vehicleVert}
+          fragmentShader={vehicleFrag}
+          uniforms={cropUniforms}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </points>
+    </>
+  );
+}
+
+function DustMotes({ mouse }) {
+  const mat = useRef();
+  const geo = useMemo(() => {
+    const n = 1800;
+    const positions = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 40;
+      positions[i * 3 + 1] = Math.random() * 6;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 40;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    g.setAttribute("aScatter", new THREE.BufferAttribute(positions.slice(), 3));
+    g.setAttribute("aSeed", new THREE.BufferAttribute(seeds(n), 1));
+    g.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(n), 1));
+    return g;
+  }, []);
+  const map = useMemo(() => makeDot(), []);
+  const uniforms = useMemo(
+    () => ({
+      uReveal: { value: 1 },
+      uAuger: { value: 0 },
+      uTime: { value: 0 },
+      uMouse: { value: new THREE.Vector3(99, 99, 99) },
+      uSize: { value: 1.2 },
+      uMouseStr: { value: 0.55 },
+      uColor: { value: CROP_DRY },
+      uMap: { value: map },
+    }),
+    [map]
+  );
+  useFrame(({ clock }) => {
+    if (!mat.current) return;
+    mat.current.uniforms.uTime.value = clock.elapsedTime * 0.5;
     mat.current.uniforms.uMouse.value.copy(mouse.current);
   });
   return (
@@ -1018,12 +1182,14 @@ export default function World({ progressRef }) {
 
   return (
     <>
-      <color attach="background" args={["#010302"]} />
-      <fog attach="fog" args={["#010302", 70, 140]} />
+      <color attach="background" args={["#020504"]} />
+      <fog attach="fog" args={["#020504", 22, 78]} />
       <CameraRig progressRef={progressRef} />
       <MousePlane mouse={mouse} />
-      <StarDome mouse={mouse} />
-      <Ground mouse={mouse} />
+      <NightSky />
+      <HorizonBand />
+      <FieldGround mouse={mouse} />
+      <DustMotes mouse={mouse} />
       <Shockwave origin={COMBINE} progressRef={progressRef} t0={0.19} t1={0.32} tFade={0.38} />
       <Shockwave origin={TRUCK_FAR} progressRef={progressRef} t0={0.52} t1={0.58} tFade={0.62} maxDist={WAVE_DIST * 0.85} />
 
