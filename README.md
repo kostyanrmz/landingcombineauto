@@ -7,7 +7,7 @@ Next.js + React Three Fiber + Framer Motion. Скролл-сцена — обл�
 ```bash
 npm install 
 npm run particles   # пересобрать точки из public/models/*.glb
-npm run dev         # http://localhost:4177 
+npm run dev         # http://localhost:4177  
 ```
 
 Стиль — тёмный glass соседних лендингов (GPS Service / Burabay Food), палитра — зелёный логотипа Combine Auto. Основной приём — скролл-стори: по прокрутке перестраивается сцена уборки.
