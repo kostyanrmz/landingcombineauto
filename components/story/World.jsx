@@ -86,12 +86,12 @@ function camAlongAxis(lookTarget, backDist, lift, lookBoost = 0.48) {
  * 0.00–0.07 assemble orbit
  * 0.07–0.19 terminal + auger
  * 0.19–0.33 wave pullback
- * 0.33–0.42 approach truck as it assembles
- * 0.42–0.50 fly past truck → beyond
- * 0.50–0.56 card + press while past truck
- * 0.56–0.62 turn look toward combine (truck fades)
- * 0.62–0.72 fly back to combine
- * 0.72–0.96 unlock → unload panorama
+ * 0.33–0.40 approach truck
+ * 0.40–0.46 fly past truck → beyond
+ * 0.46–0.51 card + press
+ * 0.51–0.55 turn to combine (truck fades)
+ * 0.55–0.64 fly back
+ * 0.64–0.96 accepted → unlock → unload
  */
 function sampleCam(p) {
   const t = clamp(p, 0, 1);
@@ -118,8 +118,8 @@ function sampleCam(p) {
       0.72
     );
   }
-  if (t < 0.42) {
-    const u = smooth(range(t, 0.33, 0.42));
+  if (t < 0.4) {
+    const u = smooth(range(t, 0.33, 0.4));
     const from = orbitPose(COMBINE, 12.5, 5.2, 2.85, 0.72);
     const toPos = [
       lerp(COMBINE.x, TRUCK_FAR.x, 0.55) + 3.2,
@@ -129,8 +129,8 @@ function sampleCam(p) {
     const toLook = [TRUCK_FAR.x, TRUCK_FAR.y + 0.45, TRUCK_FAR.z];
     return { pos: lerp3(from.pos, toPos, u), look: lerp3(from.look, toLook, u) };
   }
-  if (t < 0.5) {
-    const u = smooth(range(t, 0.42, 0.5));
+  if (t < 0.46) {
+    const u = smooth(range(t, 0.4, 0.46));
     const fromPos = [
       lerp(COMBINE.x, TRUCK_FAR.x, 0.55) + 3.2,
       4.1,
@@ -142,23 +142,22 @@ function sampleCam(p) {
       look: lerp3(fromLook, [TRUCK_FAR.x, TRUCK_FAR.y + 0.55, TRUCK_FAR.z], u),
     };
   }
-  if (t < 0.56) {
-    // hold past truck — card + press
+  if (t < 0.51) {
     return {
       pos: TRUCK_BEYOND.toArray(),
       look: [TRUCK_FAR.x, TRUCK_FAR.y + 0.55, TRUCK_FAR.z],
     };
   }
-  if (t < 0.62) {
-    const u = smooth(range(t, 0.56, 0.62));
+  if (t < 0.55) {
+    const u = smooth(range(t, 0.51, 0.55));
     const lookCombine = [COMBINE.x, COMBINE.y + 0.7, COMBINE.z];
     return {
       pos: TRUCK_BEYOND.toArray(),
       look: lerp3([TRUCK_FAR.x, TRUCK_FAR.y + 0.55, TRUCK_FAR.z], lookCombine, u),
     };
   }
-  if (t < 0.72) {
-    const u = smooth(range(t, 0.62, 0.72));
+  if (t < 0.64) {
+    const u = smooth(range(t, 0.55, 0.64));
     const arrive = orbitPose(COMBINE, 8.6, 3.35, 1.35, 0.82);
     return {
       pos: lerp3(TRUCK_BEYOND.toArray(), arrive.pos, u),
@@ -166,14 +165,14 @@ function sampleCam(p) {
     };
   }
   if (t < 0.96) {
-    const u = smooth(range(t, 0.72, 0.96));
+    const u = smooth(range(t, 0.64, 0.96));
     const unloadMid = COMBINE.clone().lerp(TRUCK_NEAR, 0.42);
     return orbitPose(
       COMBINE.clone().lerp(unloadMid, smooth(range(t, 0.82, 0.94))),
       lerp(8.6, 8.4, u),
       lerp(3.35, 3.25, u),
       lerp(1.35, 1.22, u),
-      lerp(0.82, 0.82, u)
+      0.82
     );
   }
   const u = smooth(range(t, 0.94, 1));
@@ -994,24 +993,24 @@ export default function World({ progressRef }) {
     if (p < 0.06) combineReveal.current = smooth(p / 0.06);
     else combineReveal.current = 1;
 
-    truckFarReveal.current = smooth(range(p, 0.28, 0.4)) * (1 - smooth(range(p, 0.58, 0.62)));
+    truckFarReveal.current = smooth(range(p, 0.28, 0.4)) * (1 - smooth(range(p, 0.52, 0.56)));
     truckNearReveal.current = smooth(range(p, 0.8, 0.88));
 
     terminalVis.current = smooth(range(p, 0.08, 0.11)) * (1 - smooth(range(p, 0.12, 0.14)));
-    lockMarkerVis.current = smooth(range(p, 0.15, 0.18)) * (1 - smooth(range(p, 0.68, 0.72)));
+    lockMarkerVis.current = smooth(range(p, 0.15, 0.18)) * (1 - smooth(range(p, 0.74, 0.78)));
     lockVis.current = smooth(range(p, 0.15, 0.18)) * (1 - smooth(range(p, 0.19, 0.21)));
 
     tagTerminal.current = terminalVis.current;
     tagLock.current = lockVis.current;
-    tagUnlock.current = smooth(range(p, 0.68, 0.71)) * (1 - smooth(range(p, 0.74, 0.77)));
+    tagUnlock.current = smooth(range(p, 0.74, 0.77)) * (1 - smooth(range(p, 0.8, 0.83)));
 
     cardSearch.current = smooth(range(p, 0.21, 0.24)) * (1 - smooth(range(p, 0.26, 0.29)));
-    cardRequest.current = smooth(range(p, 0.49, 0.52)) * (1 - smooth(range(p, 0.57, 0.6)));
-    pressed.current = smooth(range(p, 0.52, 0.56));
-    cardAccepted.current = smooth(range(p, 0.66, 0.69)) * (1 - smooth(range(p, 0.73, 0.76)));
+    cardRequest.current = smooth(range(p, 0.45, 0.48)) * (1 - smooth(range(p, 0.52, 0.55)));
+    pressed.current = smooth(range(p, 0.48, 0.51));
+    cardAccepted.current = smooth(range(p, 0.62, 0.65)) * (1 - smooth(range(p, 0.7, 0.73)));
 
-    augerReveal.current = smooth(range(p, 0.74, 0.78));
-    augerDeploy.current = smooth(range(p, 0.78, 0.86)) * (0.55 + smooth(range(p, 0.86, 0.94)) * 0.45);
+    augerReveal.current = smooth(range(p, 0.82, 0.86));
+    augerDeploy.current = smooth(range(p, 0.86, 0.92)) * (0.55 + smooth(range(p, 0.92, 0.97)) * 0.45);
 
     if (truckFarGroup.current) truckFarGroup.current.visible = truckFarReveal.current > 0.02;
     if (truckNearGroup.current) truckNearGroup.current.visible = truckNearReveal.current > 0.02;
@@ -1026,7 +1025,7 @@ export default function World({ progressRef }) {
       <StarDome mouse={mouse} />
       <Ground mouse={mouse} />
       <Shockwave origin={COMBINE} progressRef={progressRef} t0={0.19} t1={0.32} tFade={0.38} />
-      <Shockwave origin={TRUCK_FAR} progressRef={progressRef} t0={0.58} t1={0.64} tFade={0.68} maxDist={WAVE_DIST * 0.85} />
+      <Shockwave origin={TRUCK_FAR} progressRef={progressRef} t0={0.52} t1={0.58} tFade={0.62} maxDist={WAVE_DIST * 0.85} />
 
       <group position={COMBINE.toArray()} rotation={[0, COMBINE_YAW, 0]}>
         {combine && (
