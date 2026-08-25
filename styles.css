@@ -60,18 +60,6 @@ img { max-width: 100%; display: block; }
 
 ::selection { background: var(--brand); color: #041206; }
 
-#canvas-stage {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: -2;
-  pointer-events: none;
-  overflow: hidden;
-  background: var(--bg);
-}
-#canvas { display: block; width: 100%; height: 100%; background: var(--bg); }
-
 .bg-glow {
   position: fixed;
   inset: 0;
@@ -83,7 +71,7 @@ img { max-width: 100%; display: block; }
   position: absolute;
   border-radius: 50%;
   filter: blur(90px);
-  opacity: 0.32;
+  opacity: 0.08;
 }
 .bg-glow .g1 { width: 520px; height: 520px; background: #14532d; top: -160px; left: -120px; animation: drift1 22s ease-in-out infinite; }
 .bg-glow .g2 { width: 480px; height: 480px; background: #854d0e; top: 28%; right: -160px; animation: drift2 26s ease-in-out infinite; }
@@ -431,187 +419,253 @@ h2 {
   to { transform: translateX(-50%); }
 }
 
-/* ---------- STORY / BLUEPRINT ---------- */
-.story {
-  padding: 0;
-}
+/* ---------- STORY WORLD ---------- */
 .story-track {
   position: relative;
-  height: 1200vh;
+  height: 2200vh;
 }
 .story-sticky {
   position: sticky;
   top: 0;
-  height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  background: #050a07;
+  background: #030303;
 }
-.blueprint-stage {
-  position: absolute;
-  inset: 0;
-}
-.blueprint-stage svg {
-  width: 100%;
-  height: 100%;
+.story-sticky canvas {
   display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
-.bp-mono {
-  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  fill: #b7ffc2;
-  font-size: 14px;
-  letter-spacing: 0.12em;
-}
-.bp-mono.sm { font-size: 10px; letter-spacing: 0.16em; }
-.bp-mono.dim { fill: rgba(183, 255, 194, 0.42); }
-.bp-mono.cyan { fill: #22d3ee; }
-.bp-mono.ok { fill: #7cf08a; }
-.bp-mono.wheat { fill: #e8c547; }
-
-.bp-host .ink,
-.bp-host [data-draw] path,
-.bp-host [data-draw] circle,
-.bp-host [data-draw] rect,
-.bp-host [data-draw] line {
-  stroke: #9ff2a8;
-  stroke-width: 2.1;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-.bp-host .dim-stroke {
-  stroke: rgba(159, 242, 168, 0.28);
-  stroke-width: 1;
-}
-.bp-host .ink.danger { stroke: #f87171; }
-.bp-host .ink.ok { stroke: #7cf08a; }
-.bp-host .ghost {
-  stroke: rgba(159, 242, 168, 0.12);
-  stroke-width: 1;
-  stroke-dasharray: 4 6;
-}
-.bp-host .signal-path {
-  fill: none;
-  stroke: #e8c547;
-  stroke-width: 1.4;
-  stroke-dasharray: 6 8;
-  opacity: 0;
-}
-.bp-host .cyan-path { stroke: #22d3ee; }
-.bp-host .packet { opacity: 0; }
-.bp-host [data-draw] { opacity: 0; }
-.bp-host [data-fade] { opacity: 0; }
-.bp-host .btn-shape {
-  stroke: #e8c547;
-  fill: rgba(232, 197, 71, 0.12);
-}
-.bp-host .tap-ring {
-  fill: none;
-  stroke: #e8c547;
-  stroke-width: 1.4;
-}
-.bp-host .wave {
-  stroke: #22d3ee;
-  fill: none;
-  stroke-width: 1.3;
-}
-.bp-host .grain-dot { fill: #e8c547; stroke: none; }
-.bp-host .led { fill: transparent; stroke: #9ff2a8; }
-
 .story-caption {
   position: absolute;
-  left: 36px;
-  bottom: 36px;
-  z-index: 4;
-  max-width: min(460px, 42vw);
-  padding: 22px 24px 18px;
-  border: 1px solid rgba(159, 242, 168, 0.2);
-  background: rgba(5, 10, 7, 0.78);
-  backdrop-filter: blur(14px);
-  border-radius: 4px 18px 18px 4px;
+  left: 28px;
+  bottom: 40px;
+  z-index: 2;
+  max-width: 440px;
+  padding: 22px 22px 20px;
+  pointer-events: none;
+}
+.story-caption.glass-card:hover {
+  transform: none;
+  background: var(--glass-bg);
 }
 .story-kicker {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.72rem;
-  font-weight: 500;
   letter-spacing: 0.16em;
-  text-transform: uppercase;
   color: var(--brand);
   margin-bottom: 10px;
 }
 .story-title {
-  font-size: clamp(1.25rem, 2.2vw, 1.85rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.2;
+  font-size: clamp(1.25rem, 2.4vw, 1.7rem);
   margin-bottom: 10px;
+  line-height: 1.25;
 }
 .story-text {
   color: var(--text-secondary);
   font-size: 0.95rem;
-  line-height: 1.65;
-  margin-bottom: 16px;
+  line-height: 1.6;
 }
-.story-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.story-steps button {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid rgba(159, 242, 168, 0.25);
+.story-hint {
+  position: absolute;
+  right: 28px;
+  bottom: 28px;
+  z-index: 2;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-muted);
-  font-size: 0.68rem;
-  font-family: "IBM Plex Mono", monospace;
+  pointer-events: none;
+}
+.story-float-tag {
+  white-space: nowrap;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(6, 16, 10, 0.82);
+  border: 1px solid rgba(124, 240, 138, 0.32);
+  color: #e8f7ea;
+  font-size: 12px;
   font-weight: 600;
-  background: transparent;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transform: none !important;
+  transition: opacity 0.12s linear;
+  backdrop-filter: blur(8px);
 }
-.story-steps button.on {
-  background: var(--gradient-btn);
+.story-notify {
+  width: 148px;
+  padding: 10px 10px 8px;
+  border-radius: 14px;
+  background: rgba(4, 14, 8, 0.92);
+  border: 1px solid rgba(124, 240, 138, 0.4);
+  box-shadow: 0 0 22px rgba(61, 204, 74, 0.2);
+  text-align: center;
+  opacity: 0;
+  transform: none !important;
+  font-family: Inter, system-ui, sans-serif;
+  color: #eef7ef;
+}
+.story-notify-title {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7cf08a;
+  margin-bottom: 4px;
+}
+.story-notify-text {
+  font-size: 12px;
+  margin-bottom: 10px;
+  color: #d7eadb;
+}
+.story-app-action.is-tapping .story-tap-ring {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.08);
+}
+.story-tap-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(124, 240, 138, 0.85);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.82);
+  transition: opacity 0.1s linear, transform 0.14s ease-out;
+}
+.story-app-action.is-tapping .story-notify-btn {
+  box-shadow: 0 0 24px rgba(61, 204, 74, 0.85);
+}
+.story-notify-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #22c55e, #15803d);
   color: #fff;
-  border-color: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  transition: box-shadow 0.12s ease;
+  transform-origin: center center;
 }
-
-.story-progress {
+.story-notify-btn.pressed {
+  transform: scale(0.92);
+  box-shadow: 0 0 20px rgba(61, 204, 74, 0.7);
+}
+.story-app-card {
+  width: 196px;
+  padding: 12px 14px 12px;
+  border-radius: 14px;
+  background: rgba(4, 14, 8, 0.94);
+  border: 1px solid rgba(124, 240, 138, 0.38);
+  box-shadow: 0 0 24px rgba(61, 204, 74, 0.15);
+  text-align: left;
+  opacity: 0;
+  transform: none !important;
+  font-family: Inter, system-ui, sans-serif;
+  color: #eef7ef;
+}
+.story-app-brand {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #7cf08a;
+  margin-bottom: 6px;
+}
+.story-app-title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  margin-bottom: 4px;
+}
+.story-app-sub {
+  font-size: 11px;
+  color: #c5dcc9;
+  margin-bottom: 10px;
+}
+.story-app-card .story-notify-btn {
+  margin-top: 4px;
+  font-size: 11px;
+  min-width: 88px;
+  padding: 6px 12px;
+}
+.story-app-action {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  margin-top: 2px;
+}
+.story-tap-cursor {
   position: absolute;
   left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.06);
-  z-index: 6;
+  top: 0;
+  font-size: 24px;
+  line-height: 1;
+  pointer-events: none;
+  opacity: 0;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+  transition: opacity 0.12s linear;
+  z-index: 2;
 }
-.story-progress span {
+.story-notify-btn.pressed {
+  transform: scale(0.88);
+  box-shadow: 0 0 22px rgba(61, 204, 74, 0.8);
+}
+.footer-credits {
   display: block;
-  height: 100%;
-  width: 0%;
-  background: var(--gradient-btn);
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
 }
 
-.hero-schematic {
+.hero-photo {
   position: relative;
   margin-top: 56px;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid rgba(159, 242, 168, 0.18);
   min-height: 220px;
-  height: 240px;
+  height: 280px;
   background:
-    url("blueprint.svg") center 18% / 140% auto no-repeat,
-    repeating-linear-gradient(0deg, transparent 0 39px, rgba(127,240,150,.08) 39px 40px),
-    repeating-linear-gradient(90deg, transparent 0 39px, rgba(127,240,150,.08) 39px 40px),
-    #050a07;
+    linear-gradient(180deg, rgba(8, 9, 13, 0.15), rgba(8, 9, 13, 0.72)),
+    url("/assets/hero-field.jpg") center / cover no-repeat,
+    #08090d;
 }
-.schematic-still {
+.field-still {
+  position: relative;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid rgba(159, 242, 168, 0.18);
   min-height: 420px;
+  display: grid;
+  place-items: center;
   background:
-    url("blueprint.svg") 20% 40% / 180% auto no-repeat,
-    #050a07;
+    radial-gradient(ellipse at 50% 42%, rgba(34, 211, 238, 0.12), transparent 58%),
+    repeating-linear-gradient(0deg, transparent 0 39px, rgba(127,240,150,.06) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, rgba(127,240,150,.06) 39px 40px),
+    #08090d;
+}
+.field-still img {
+  width: min(78%, 380px);
+  height: auto;
+  filter: drop-shadow(0 18px 36px rgba(34, 211, 238, 0.22)) drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+}
+.field-still-cap {
+  position: absolute;
+  left: 20px;
+  bottom: 16px;
+  margin: 0;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .roles-grid {
@@ -778,22 +832,21 @@ footer {
 .footer-links a { font-size: 0.8rem; color: var(--text-muted); }
 .footer-links a:hover { color: var(--text-primary); }
 
-body.preview .navbar,
-body.preview .hero,
-body.preview .ticker-section,
-body.preview .story-spacer,
-body.preview .bg-glow,
-body.preview #canvas-stage,
-body.preview footer,
-body.preview .mobile-menu,
-body.preview #roles,
-body.preview #tech,
-body.preview #contact,
-body.preview .web-banner {
+body.shot .navbar,
+body.shot .hero,
+body.shot .ticker-section,
+body.shot .bg-glow,
+body.shot footer,
+body.shot .mobile-menu,
+body.shot #roles,
+body.shot #tech,
+body.shot #contact,
+body.shot .web-banner {
   display: none !important;
 }
-body.preview .story-track { height: 100vh; }
-body.preview .story-sticky { position: relative; }
+body.shot .story-track { height: 100dvh; }
+body.shot .story-sticky { position: relative; }
+
 .reveal {
   opacity: 0;
   transform: translateY(18px);
@@ -811,15 +864,15 @@ body.preview .story-sticky { position: relative; }
   .hamburger { display: flex; }
   .roles-grid, .stack-grid, .contact-wrap, .web-banner { grid-template-columns: 1fr; }
   .story-caption {
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
+    left: 14px;
+    right: 14px;
+    bottom: 16px;
     max-width: none;
     padding: 16px;
   }
+  .story-hint { display: none; }
   .story-title { font-size: 1.2rem; }
-  .story-text { font-size: 0.88rem; }
-  .hero-schematic { height: 260px; min-height: 260px; }
+  .hero-photo { height: 260px; min-height: 260px; }
   footer { flex-direction: column; text-align: center; }
 }
 

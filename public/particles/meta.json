@@ -1,0 +1,36 @@
+{
+  "combine": {
+    "count": 52000,
+    "scale": 0.17625983430342726,
+    "size": [
+      2.144,
+      1.671,
+      4.6
+    ],
+    "auger": {
+      "axis": 2,
+      "from": -2.299999952316284,
+      "to": 2.299999952316284,
+      "side": -1
+    }
+  },
+  "truck": {
+    "count": 36000,
+    "scale": 0.44564735294363533,
+    "size": [
+      1.391,
+      1.629,
+      3.8
+    ],
+    "auger": {
+      "axis": 2,
+      "from": -1.899999976158142,
+      "to": 1.899999976158142,
+      "side": -1
+    }
+  },
+  "credits": {
+    "combine": "John Deere CTS Combine — OwenNielsen, Sketchfab, CC-BY-4.0",
+    "truck": "Japanese Dump Truck — Pavel Gorbachev, Sketchfab, CC-BY-4.0"
+  }
+}

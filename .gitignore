@@ -3,3 +3,5 @@ _shots/
 .vercel
 node_modules
 *.log
+.next
+out
