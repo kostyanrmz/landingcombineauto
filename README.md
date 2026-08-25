@@ -5,7 +5,7 @@
 Next.js + React Three Fiber + Framer Motion. Скролл-сцена — облако точек с моделей комбайна и самосвала.
 
 ```bash
-npm install
+npm install 
 npm run particles   # пересобрать точки из public/models/*.glb
 npm run dev         # http://localhost:4177
 ```
