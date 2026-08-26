@@ -5,11 +5,14 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 
-const BRAND = new THREE.Color("#3dcc4a");
-const BRAND2 = new THREE.Color("#7cf08a");
+const BRAND = new THREE.Color("#aeccb6");
+const BRAND2 = new THREE.Color("#bed8c4");
+const VEHICLE = new THREE.Color("#b4d4bc");
+const VEHICLE2 = new THREE.Color("#bcdac4");
 const WHEAT = new THREE.Color("#e8c547");
 const NAV = new THREE.Color("#4da6ff");
-const LOCK = new THREE.Color("#f87171");
+const LOCK = new THREE.Color("#e11d48");
+const GOLD = new THREE.Color("#d4a84b");
 
 const COMBINE = new THREE.Vector3(-4.2, 0.82, 0);
 /** Front = local +Z → world −Z (minZ local is rear) */
@@ -89,7 +92,9 @@ function camAlongAxis(lookTarget, backDist, lift, lookBoost = 0.48) {
  * 0.46–0.51 card + press
  * 0.51–0.55 turn to combine (truck fades)
  * 0.55–0.64 fly back
- * 0.64–0.96 accepted → unlock → unload
+ * 0.64–0.88 accepted → unlock → unload
+ * 0.88–0.94 camera pullback
+ * 0.93–1.00 models scatter
  */
 function sampleCam(p) {
   const t = clamp(p, 0, 1);
@@ -162,28 +167,131 @@ function sampleCam(p) {
       look: lerp3([COMBINE.x, COMBINE.y + 0.7, COMBINE.z], arrive.look, u),
     };
   }
-  if (t < 0.96) {
-    const u = smooth(range(t, 0.64, 0.96));
+  if (t < 0.88) {
+    const u = smooth(range(t, 0.64, 0.88));
     const unloadMid = COMBINE.clone().lerp(TRUCK_NEAR, 0.42);
     return orbitPose(
-      COMBINE.clone().lerp(unloadMid, smooth(range(t, 0.82, 0.94))),
+      COMBINE.clone().lerp(unloadMid, smooth(range(t, 0.78, 0.86))),
       lerp(8.6, 8.4, u),
       lerp(3.35, 3.25, u),
       lerp(1.35, 1.22, u),
       0.82
     );
   }
+  if (t < 0.94) {
+    const u = smooth(range(t, 0.88, 0.94));
+    return {
+      pos: lerp3([-5.3, 7, 12], [-5.3, 9.8, 18], u),
+      look: [-5.35, 0.35, 0],
+    };
+  }
   const u = smooth(range(t, 0.94, 1));
   return {
-    pos: lerp3([-5.3, 7, 12], [-5.3, 9.2, 16], u),
-    look: [-5.35, 0.35, 0],
+    pos: lerp3([-5.3, 9.8, 18], [-5.5, 12.5, 24], u),
+    look: [-5.35, 0.15, 0],
   };
 }
 
-function downsample(arr, factor) {
-  if (factor >= 0.98) return arr;
+/** Soft mask: folded unload spout along rear (+X, −Z), including downturn tip */
+function markFoldedAuger(positions) {
+  const n = positions.length / 3;
+  const out = new Float32Array(n);
+  // folded rear tube + downturn tip (local combine space)
+  const ax = 0.4;
+  const ay = 0.48;
+  const az = -0.5;
+  const bx = 0.43;
+  const by = 0.5;
+  const bz = -2.0;
+  const cx = 0.42;
+  const cy = 0.22;
+  const cz = -2.38;
+  const dx = 0.4;
+  const dy = 0.1;
+  const dz = -2.48;
+  const abx = bx - ax;
+  const aby = by - ay;
+  const abz = bz - az;
+  const ab2 = abx * abx + aby * aby + abz * abz;
+  const bcx = cx - bx;
+  const bcy = cy - by;
+  const bcz = cz - bz;
+  const bc2 = bcx * bcx + bcy * bcy + bcz * bcz;
+  const cdx = dx - cx;
+  const cdy = dy - cy;
+  const cdz = dz - cz;
+  const cd2 = cdx * cdx + cdy * cdy + cdz * cdz;
+
+  const distSeg = (px, py, pz, ox, oy, oz, sx, sy, sz, len2) => {
+    let t = ((px - ox) * sx + (py - oy) * sy + (pz - oz) * sz) / len2;
+    t = clamp(t, 0, 1);
+    const qx = px - (ox + sx * t);
+    const qy = py - (oy + sy * t);
+    const qz = pz - (oz + sz * t);
+    return Math.sqrt(qx * qx + qy * qy + qz * qz);
+  };
+
+  for (let i = 0; i < n; i++) {
+    const x = positions[i * 3];
+    const y = positions[i * 3 + 1];
+    const z = positions[i * 3 + 2];
+    // keep mask to rear-right tube volume only
+    if (x < 0.18 || x > 0.78 || y < -0.25 || y > 0.78 || z > -0.28) {
+      out[i] = 0;
+      continue;
+    }
+    const dMain = distSeg(x, y, z, ax, ay, az, abx, aby, abz, ab2);
+    const dTip = distSeg(x, y, z, bx, by, bz, bcx, bcy, bcz, bc2);
+    const dEnd = distSeg(x, y, z, cx, cy, cz, cdx, cdy, cdz, cd2);
+    let dist = Math.min(dMain, dTip, dEnd);
+    // wide nozzle / spout blob (particles sit off the thin tube axis)
+    if (z < -1.75 && x > 0.22 && x < 0.68 && y < 0.68) {
+      const nx = x - 0.42;
+      const ny = y - 0.34;
+      const nz = z + 2.28;
+      dist = Math.min(dist, Math.sqrt(nx * nx + ny * ny * 0.7 + nz * nz) - 0.1);
+    }
+    if (z < -2.05 && x > 0.25 && x < 0.6 && y < 0.45) {
+      const nx = x - 0.41;
+      const ny = y - 0.18;
+      const nz = z + 2.4;
+      dist = Math.min(dist, Math.sqrt(nx * nx * 0.9 + ny * ny + nz * nz) - 0.08);
+    }
+    // lower downturn + stray tip crumbs under the spout
+    if (z < -1.5 && x > 0.18 && x < 0.72 && y < 0.35) {
+      const nx = x - 0.36;
+      const ny = y - 0.05;
+      const nz = z + 1.85;
+      dist = Math.min(dist, Math.sqrt(nx * nx + ny * ny * 1.1 + nz * nz) - 0.14);
+    }
+    const soft = z < -1.55 ? 0.28 : 0.11;
+    out[i] = clamp(1 - (dist - 0.05) / soft, 0, 1);
+  }
+  return out;
+}
+
+function densify(arr, mult = 1.5) {
+  if (mult <= 1.01) return arr;
   const n = arr.length / 3;
-  const keep = Math.max(1200, Math.floor(n * factor));
+  const keep = Math.floor(n * mult);
+  const out = new Float32Array(keep * 3);
+  for (let i = 0; i < keep; i++) {
+    const j = Math.floor((i / keep) * n);
+    const h = Math.sin(i * 12.9898 + j * 78.233) * 43758.5453;
+    const r = h - Math.floor(h);
+    const r2 = Math.sin(h) - Math.floor(Math.sin(h));
+    const r3 = Math.cos(h * 0.17) - Math.floor(Math.cos(h * 0.17));
+    out[i * 3] = arr[j * 3] + (r - 0.5) * 0.012;
+    out[i * 3 + 1] = arr[j * 3 + 1] + (r2 - 0.5) * 0.012;
+    out[i * 3 + 2] = arr[j * 3 + 2] + (r3 - 0.5) * 0.012;
+  }
+  return out;
+}
+
+function downsample(arr, factor) {
+  if (factor >= 0.98) return densify(arr, 1.5);
+  const n = arr.length / 3;
+  const keep = Math.max(1800, Math.floor(n * factor));
   const out = new Float32Array(keep * 3);
   const step = n / keep;
   for (let i = 0; i < keep; i++) {
@@ -192,7 +300,7 @@ function downsample(arr, factor) {
     out[i * 3 + 1] = arr[j + 1];
     out[i * 3 + 2] = arr[j + 2];
   }
-  return out;
+  return densify(out, 1.25);
 }
 
 function scatterFromWave(positions, spread) {
@@ -295,8 +403,8 @@ function buildAugerPipePoints() {
 
   const mount = AUGER_MOUNT.clone();
   const tip = PIPE_TIP_LOCAL.clone();
-  tube(mount, tip, 0.082, 44, 16);
-  ring(tip, new THREE.Vector3(0.1, -1, 0.02).normalize(), 0.062, 12);
+  tube(mount, tip, 0.09, 56, 18);
+  ring(tip, new THREE.Vector3(0.1, -1, 0.02).normalize(), 0.068, 14);
   return new Float32Array(pts);
 }
 
@@ -348,33 +456,51 @@ void main() {
 }
 `;
 
-/** Technique — shrink hard when far (no additive white-out); grow a bit when close */
+/** Technique — shrink + dim hard when far (additive mustn't burn green) */
 const techVert = /* glsl */ `
 attribute float aSeed;
 attribute float aAuger;
 attribute vec3 aScatter;
 uniform float uReveal;
 uniform float uAuger;
+uniform float uDissolve;
 uniform float uTime;
 uniform vec3 uMouse;
 uniform float uSize;
 uniform float uMouseStr;
 varying float vAlpha;
+varying float vFar;
 void main() {
   float appear = smoothstep(aSeed * 0.22, aSeed * 0.22 + 0.78, uReveal);
+  float hide = aAuger * uAuger;
+  appear *= 1.0 - hide;
+  // assemble uses aScatter only; explode only on end dissolve
   vec3 p = mix(aScatter, position, appear);
+  p = mix(p, aScatter, hide);
+
+  float diss = smoothstep(aSeed * 0.18, aSeed * 0.18 + 0.82, uDissolve);
+  vec3 away = normalize(position + vec3(0.002, 0.35, 0.002));
+  vec3 explode = position + away * (12.0 + aSeed * 26.0) + vec3(
+    (aSeed - 0.5) * 18.0,
+    4.0 + aSeed * 14.0,
+    (fract(aSeed * 17.0) - 0.5) * 18.0
+  );
+  p = mix(p, explode, diss);
+
   vec3 to = p - uMouse;
   float d = length(to);
-  p += normalize(to + vec3(0.0001)) * uMouseStr * exp(-d * d * 1.7);
+  p += normalize(to + vec3(0.0001)) * uMouseStr * exp(-d * d * 1.7) * (1.0 - diss);
   float tw = 0.9 + 0.1 * sin(uTime * (0.9 + aSeed * 1.6) + aSeed * 20.0);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   float z = max(2.5, -mv.z);
-  // stronger falloff at distance: ~z^-1.35
-  float distScale = 22.0 / pow(z, 1.15);
-  gl_PointSize = clamp(uSize * tw * distScale, 0.5, 4.2);
+  float distScale = 20.0 / pow(z, 1.26);
+  float farAmt = smoothstep(9.0, 38.0, z);
+  float keep = step(farAmt * 0.65, aSeed);
+  gl_PointSize = clamp(uSize * tw * distScale * (1.0 - hide) * keep * (1.0 - diss * 0.4), 0.0, 3.4);
   gl_Position = projectionMatrix * mv;
-  float nearBoost = mix(1.06, 0.62, smoothstep(6.0, 20.0, z));
-  vAlpha = appear * tw * nearBoost;
+  float nearBoost = mix(0.96, 0.6, farAmt);
+  vAlpha = appear * tw * nearBoost * keep * (1.0 - diss);
+  vFar = farAmt;
 }
 `;
 
@@ -384,21 +510,36 @@ attribute float aSeg;
 attribute vec3 aScatter;
 uniform float uReveal;
 uniform float uDeploy;
+uniform float uDissolve;
 uniform float uTime;
 uniform float uSize;
 varying float vAlpha;
+varying float vFar;
 void main() {
   float seg = smoothstep(aSeg - 0.08, aSeg + 0.04, uDeploy);
-  float appear = smoothstep(aSeed * 0.15, aSeed * 0.15 + 0.7, uReveal) * seg;
+  float appear = smoothstep(aSeed * 0.12, aSeed * 0.12 + 0.65, uReveal) * seg;
   vec3 p = mix(aScatter, position, appear);
-  float tw = 0.88 + 0.12 * sin(uTime * 1.6 + aSeed * 30.0);
+
+  float diss = smoothstep(aSeed * 0.15, aSeed * 0.15 + 0.85, uDissolve);
+  vec3 away = normalize(position + vec3(0.002, 0.25, 0.002));
+  vec3 explode = position + away * (10.0 + aSeed * 22.0) + vec3(
+    (aSeed - 0.5) * 14.0,
+    3.5 + aSeed * 12.0,
+    (fract(aSeed * 13.0) - 0.5) * 14.0
+  );
+  p = mix(p, explode, diss);
+
+  float tw = 0.9 + 0.1 * sin(uTime * 1.6 + aSeed * 30.0);
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   float z = max(2.5, -mv.z);
-  float distScale = 20.0 / pow(z, 1.15);
-  gl_PointSize = clamp(uSize * tw * distScale, 0.45, 3.8);
+  float distScale = 18.5 / pow(z, 1.24);
+  float farAmt = smoothstep(9.0, 36.0, z);
+  float keep = step(farAmt * 0.5, aSeed);
+  gl_PointSize = clamp(uSize * tw * distScale * keep * (1.0 - diss * 0.3), 0.0, 3.2);
   gl_Position = projectionMatrix * mv;
-  float nearBoost = mix(1.04, 0.65, smoothstep(6.0, 20.0, z));
-  vAlpha = appear * tw * nearBoost;
+  float nearBoost = mix(0.96, 0.62, farAmt);
+  vAlpha = appear * tw * nearBoost * keep * (1.0 - diss);
+  vFar = farAmt;
 }
 `;
 
@@ -406,54 +547,161 @@ const vehicleFrag = /* glsl */ `
 uniform vec3 uColor;
 uniform sampler2D uMap;
 varying float vAlpha;
+varying float vFar;
 void main() {
+  if (vAlpha < 0.02) discard;
   vec4 m = texture2D(uMap, gl_PointCoord);
-  float a = m.a * vAlpha * 0.85;
-  if (a < 0.06) discard;
-  gl_FragColor = vec4(uColor, a);
+  float a = m.a * vAlpha * mix(0.66, 0.38, vFar);
+  if (a < 0.03) discard;
+  vec3 col = mix(uColor, uColor * 0.82, vFar);
+  gl_FragColor = vec4(col, a);
 }
 `;
 
-/** Stars / ambient — mesh3d-style: bright additive points in volume + sky */
-const starVert = /* glsl */ `
+/** Slow rising particles — gray + green; pulse wave every ~5s */
+const ambientVert = /* glsl */ `
 attribute float aSeed;
-attribute float aBright;
+attribute float aTint;
+attribute float aSpeed;
+attribute float aCeil;
 uniform float uTime;
 uniform float uSize;
 uniform float uPixelRatio;
+uniform float uPulse; // 0..1 expanding ring phase
 uniform vec3 uMouse;
 uniform float uMouseStr;
 varying float vAlpha;
+varying float vTint;
+varying float vPulseBoost;
 void main() {
+  float life = fract(aSeed + uTime * aSpeed);
   vec3 p = position;
-  float elev = max(0.0, p.y);
-  vec3 to = p - uMouse;
-  float d = length(to.xz);
-  // Soft mouse wake only for low floating dust (not far sky)
-  float wake = step(elev, 14.0) * uMouseStr * exp(-d * d * 0.045);
-  p.y += wake * 1.1;
-  p.xz += normalize(to.xz + vec2(0.0001)) * wake * 0.55;
+  float ground = -0.06;
+  p.y = ground + 0.02 + life * aCeil;
+  p.x += sin(uTime * 0.1 + aSeed * 20.0) * 0.05 * life;
+  p.z += cos(uTime * 0.09 + aSeed * 17.0) * 0.05 * life;
 
-  float tw = 0.7 + 0.3 * sin(uTime * (0.55 + aSeed * 1.8) + aSeed * 28.0);
+  // soft cursor wake
+  vec2 away = p.xz - uMouse.xz;
+  float md = length(away);
+  float push = uMouseStr * exp(-md * md * 0.55);
+  p.xz += normalize(away + vec2(0.0001)) * push;
+  p.y += push * 0.2;
+
+  float r = length(p.xz);
+  float ringR = uPulse * 58.0;
+  float ring = abs(r - ringR);
+  float live = smoothstep(0.0, 0.05, uPulse) * (1.0 - smoothstep(0.88, 1.0, uPulse));
+  vPulseBoost = exp(-ring * ring * 0.1) * live;
+  vPulseBoost += exp(-md * md * 0.7) * 0.12;
+
+  float fadeIn = smoothstep(0.0, 0.06, life);
+  float fadeOut = 1.0 - smoothstep(0.78, 1.0, life);
+  float tw = 0.85 + 0.15 * sin(uTime * 0.6 + aSeed * 12.0);
+
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   float z = max(1.5, -mv.z);
-  float px = uSize * aBright * tw * uPixelRatio * (95.0 / z);
-  gl_PointSize = clamp(px, 0.7, 3.2);
+  gl_PointSize = clamp(uSize * tw * uPixelRatio * (70.0 / z), 0.6, 3.2);
   gl_Position = projectionMatrix * mv;
-  vAlpha = aBright * tw;
+  vTint = aTint;
+  vAlpha = fadeIn * fadeOut * tw * (0.35 + 0.5 * mix(0.5, 1.0, aTint));
 }
 `;
 
-const starFrag = /* glsl */ `
-uniform vec3 uColor;
+const ambientFrag = /* glsl */ `
+uniform vec3 uGreen;
+uniform vec3 uGray;
 uniform sampler2D uMap;
 varying float vAlpha;
+varying float vTint;
+varying float vPulseBoost;
 void main() {
   vec4 m = texture2D(uMap, gl_PointCoord);
-  float a = m.a * vAlpha;
-  if (a < 0.03) discard;
-  vec3 col = uColor * (0.65 + 0.9 * m.r);
-  gl_FragColor = vec4(col, a);
+  float a = m.a * (vAlpha + vPulseBoost * 0.55);
+  if (a < 0.025) discard;
+  vec3 col = mix(uGray, uGreen, vTint);
+  col += vec3(0.55, 1.0, 0.6) * vPulseBoost;
+  gl_FragColor = vec4(col * (0.6 + 0.7 * m.r), a);
+}
+`;
+
+/** Dark velvet floor + water-like green caustics (просветы) */
+const velvetVert = /* glsl */ `
+varying vec2 vXZ;
+void main() {
+  vec3 p = position;
+  // flat cloth — fixed height so vehicles sit on it
+  vXZ = p.xz;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+}
+`;
+
+const velvetFrag = /* glsl */ `
+uniform float uTime;
+varying vec2 vXZ;
+
+float hash21(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+float noise21(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i);
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 5; i++) {
+    v += a * noise21(p);
+    p = p * 2.07 + vec2(1.7, 9.2);
+    a *= 0.5;
+  }
+  return v;
+}
+
+void main() {
+  float dist = length(vXZ);
+  // wide soft falloff — blend into sky haze, not into black
+  float fade = 1.0 - smoothstep(24.0, 64.0, dist);
+
+  float n0 = fbm(vXZ * 0.08);
+  float n1 = fbm(vXZ * 0.17 + vec2(4.1, 2.3));
+  vec3 baseA = vec3(0.028, 0.042, 0.032);
+  vec3 baseB = vec3(0.04, 0.058, 0.042);
+  vec3 baseC = vec3(0.024, 0.05, 0.036);
+  vec3 base = mix(baseA, baseB, n0);
+  base = mix(base, baseC, n1 * 0.5);
+
+  float t = uTime * 0.48;
+  vec2 uv = vXZ * 0.145;
+  vec2 w1 = vec2(fbm(uv + t * 0.14), fbm(uv + vec2(5.2, 1.3) - t * 0.11));
+  vec2 w2 = vec2(fbm(uv * 1.6 + w1 * 1.35 + t * 0.09), fbm(uv * 1.5 - w1 + vec2(2.8, 7.1)));
+  float c = fbm(uv * 2.6 + w2 * 1.55 + t * 0.08);
+  float c2 = fbm(uv * 4.8 - w2 * 1.05 - t * 0.09 + 3.7);
+  float fill = fbm(uv * 0.55 + t * 0.06);
+
+  float caustic = smoothstep(0.24, 0.7, c);
+  caustic *= mix(0.55, 1.1, smoothstep(0.2, 0.6, c2));
+  caustic = mix(caustic * 0.55, caustic, smoothstep(0.3, 0.7, fill));
+
+  float glow = max(caustic, fill * 0.38);
+  float hot = pow(smoothstep(0.38, 0.9, caustic), 1.25);
+
+  vec3 lime = vec3(0.32, 0.62, 0.26);
+  vec3 mint = vec3(0.11, 0.3, 0.16);
+  vec3 col = base + mint * glow * 0.38 + lime * hot * 0.2;
+  col += mint * fill * 0.14;
+
+  // same haze as sky horizon — kills the hard rim
+  vec3 skyHaze = vec3(0.055, 0.105, 0.068);
+  col = mix(skyHaze, col, fade);
+
+  gl_FragColor = vec4(col, 1.0);
 }
 `;
 
@@ -461,15 +709,18 @@ const techFrag = /* glsl */ `
 uniform vec3 uColor;
 uniform sampler2D uMap;
 varying float vAlpha;
+varying float vFar;
 void main() {
+  if (vAlpha < 0.02) discard;
   vec4 m = texture2D(uMap, gl_PointCoord);
-  float a = m.a * vAlpha * 0.88;
-  if (a < 0.05) discard;
-  gl_FragColor = vec4(uColor, a);
+  float a = m.a * vAlpha * mix(0.64, 0.34, vFar);
+  if (a < 0.03) discard;
+  vec3 col = mix(uColor, uColor * 0.78, vFar);
+  gl_FragColor = vec4(col, a);
 }
 `;
 
-function VehicleCloud({ positions, color, reveal, size = 2.6, scatterR = 5.2, waveScatter = false, mouse }) {
+function VehicleCloud({ positions, color, reveal, size = 2.6, scatterR = 5.2, waveScatter = false, mouse, augerHide = null, maskAuger = false, dissolve = null }) {
   const mat = useRef();
   const geo = useMemo(() => {
     const n = positions.length / 3;
@@ -480,14 +731,15 @@ function VehicleCloud({ positions, color, reveal, size = 2.6, scatterR = 5.2, wa
       new THREE.BufferAttribute(waveScatter ? scatterFromWave(positions, scatterR) : scatterFrom(positions, scatterR), 3)
     );
     g.setAttribute("aSeed", new THREE.BufferAttribute(seeds(n), 1));
-    g.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(n), 1));
+    g.setAttribute("aAuger", new THREE.BufferAttribute(maskAuger ? markFoldedAuger(positions) : new Float32Array(n), 1));
     return g;
-  }, [positions, scatterR, waveScatter]);
+  }, [positions, scatterR, waveScatter, maskAuger]);
   const map = useMemo(() => makeDot(), []);
   const uniforms = useMemo(
     () => ({
       uReveal: { value: 0 },
       uAuger: { value: 0 },
+      uDissolve: { value: 0 },
       uTime: { value: 0 },
       uMouse: { value: new THREE.Vector3(99, 99, 99) },
       uSize: { value: size },
@@ -501,6 +753,8 @@ function VehicleCloud({ positions, color, reveal, size = 2.6, scatterR = 5.2, wa
     if (!mat.current) return;
     mat.current.uniforms.uTime.value = clock.elapsedTime;
     mat.current.uniforms.uReveal.value = reveal.current;
+    mat.current.uniforms.uAuger.value = augerHide ? augerHide.current : 0;
+    mat.current.uniforms.uDissolve.value = dissolve ? dissolve.current : 0;
     mat.current.uniforms.uMouse.value.copy(mouse.current);
   });
   return (
@@ -519,7 +773,7 @@ function VehicleCloud({ positions, color, reveal, size = 2.6, scatterR = 5.2, wa
   );
 }
 
-function AugerPipe({ reveal, deploy, mouse }) {
+function AugerPipe({ reveal, deploy, mouse, dissolve = null }) {
   const mat = useRef();
   const positions = useMemo(() => buildAugerPipePoints(), []);
   const geo = useMemo(() => {
@@ -541,9 +795,10 @@ function AugerPipe({ reveal, deploy, mouse }) {
     () => ({
       uReveal: { value: 0 },
       uDeploy: { value: 0 },
+      uDissolve: { value: 0 },
       uTime: { value: 0 },
-      uSize: { value: 2.55 },
-      uColor: { value: BRAND },
+      uSize: { value: 2.85 },
+      uColor: { value: BRAND2 },
       uMap: { value: map },
     }),
     [map]
@@ -553,6 +808,7 @@ function AugerPipe({ reveal, deploy, mouse }) {
     mat.current.uniforms.uTime.value = clock.elapsedTime;
     mat.current.uniforms.uReveal.value = reveal.current;
     mat.current.uniforms.uDeploy.value = deploy.current;
+    mat.current.uniforms.uDissolve.value = dissolve ? dissolve.current : 0;
   });
   return (
     <points geometry={geo} frustumCulled={false}>
@@ -570,7 +826,16 @@ function AugerPipe({ reveal, deploy, mouse }) {
   );
 }
 
-function MarkerCluster({ local, color, visible, radius = 0.055, count = 260, size = 0.048 }) {
+function MarkerCluster({
+  local,
+  color,
+  visible,
+  radius = 0.055,
+  count = 260,
+  size = 0.048,
+  blending = THREE.AdditiveBlending,
+  opacityMul = 0.92,
+}) {
   const ref = useRef();
   const mat = useRef();
   const positions = useMemo(() => clusterPoints(count, radius), [count, radius]);
@@ -584,7 +849,7 @@ function MarkerCluster({ local, color, visible, radius = 0.055, count = 260, siz
     if (!ref.current || !mat.current) return;
     const v = visible.current;
     ref.current.visible = v > 0.02;
-    mat.current.opacity = v * 0.92;
+    mat.current.opacity = v * opacityMul;
     mat.current.size = size;
   });
   return (
@@ -597,7 +862,7 @@ function MarkerCluster({ local, color, visible, radius = 0.055, count = 260, siz
           size={size}
           transparent
           depthWrite={false}
-          blending={THREE.AdditiveBlending}
+          blending={blending}
           sizeAttenuation
           toneMapped={false}
         />
@@ -637,7 +902,7 @@ function CalloutStick({ fromRef, toRef, visibleRef }) {
     <points ref={ref} geometry={geo} frustumCulled={false}>
       <pointsMaterial
         map={map}
-        color="#9cffaa"
+        color="#b8c0ba"
         size={0.032}
         transparent
         depthWrite={false}
@@ -817,7 +1082,7 @@ function Grain({ progressRef }) {
   const map = useMemo(() => makeDot(), []);
   useFrame(({ clock }) => {
     const p = progressRef.current;
-    const flow = smooth(range(p, 0.84, 0.96));
+    const flow = smooth(range(p, 0.86, 0.92)) * (1 - smooth(range(p, 0.93, 0.97)));
     const tip = augerTipWorld();
     const bed = truckBedWorld();
     const arr = geo.attributes.position.array;
@@ -860,127 +1125,127 @@ function heightAt(x, z) {
   return (
     Math.sin(x * 0.055) * 0.045 +
     Math.sin(z * 0.07) * 0.035 +
-    Math.sin((x + z) * 0.04) * 0.025
+    Math.sin((x + z) * 0.04) * 0.025 +
+    Math.sin(x * 0.12 + z * 0.09) * 0.018
   );
+}
+
+/** Shared radial pulse 0..1 — lasts until ring exits the field */
+function pulsePhase(t) {
+  const cycle = t % 5.2;
+  return cycle < 2.6 ? cycle / 2.6 : 0;
 }
 
 /** Ground under vehicles (~wheel contact). Clouds centered; bottom ≈ y - 0.84 */
 const FIELD_Y = -0.02;
 
-function makeFieldBundle(size, segs, yBase = FIELD_Y) {
-  const surface = new THREE.PlaneGeometry(size, size, segs, segs);
-  surface.rotateX(-Math.PI / 2);
-  const pos = surface.attributes.position;
-  const base = new Float32Array(pos.count * 3);
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const z = pos.getZ(i);
-    const y = yBase + heightAt(x, z);
-    pos.setY(i, y);
-    base[i * 3] = x;
-    base[i * 3 + 1] = y;
-    base[i * 3 + 2] = z;
-  }
-  pos.needsUpdate = true;
-  surface.computeVertexNormals();
+const goldVert = /* glsl */ `
+attribute float aSeed;
+uniform float uTime;
+uniform float uSize;
+uniform float uPixelRatio;
+uniform float uPulse;
+uniform vec3 uMouse;
+uniform float uMouseStr;
+varying float vAlpha;
+varying float vPulseBoost;
+void main() {
+  vec3 p = position;
+  vec2 away = p.xz - uMouse.xz;
+  float md = length(away);
+  float push = uMouseStr * exp(-md * md * 0.48);
+  p.xz += normalize(away + vec2(0.0001)) * push;
+  p.y += push * 0.12;
 
-  const w = segs + 1;
-  const lineIdx = [];
-  for (let iz = 0; iz <= segs; iz++) {
-    for (let ix = 0; ix < segs; ix++) {
-      const i = iz * w + ix;
-      lineIdx.push(i, i + 1);
-    }
-  }
-  for (let ix = 0; ix <= segs; ix++) {
-    for (let iz = 0; iz < segs; iz++) {
-      const i = iz * w + ix;
-      lineIdx.push(i, i + w);
-    }
-  }
-  const wire = new THREE.BufferGeometry();
-  wire.setAttribute("position", pos);
-  wire.setIndex(lineIdx);
+  float r = length(p.xz);
+  float ringR = uPulse * 58.0;
+  float ring = abs(r - ringR);
+  // soft exit — no hard cut when the wave leaves the field
+  float live = smoothstep(0.0, 0.05, uPulse) * (1.0 - smoothstep(0.88, 1.0, uPulse));
+  vPulseBoost = exp(-ring * ring * 0.065) * live;
+  vPulseBoost += exp(-md * md * 0.65) * 0.18;
 
-  const n = pos.count;
-  const nodes = new THREE.BufferGeometry();
-  nodes.setAttribute("position", pos);
-  nodes.setAttribute("aScatter", new THREE.BufferAttribute(base.slice(), 3));
-  nodes.setAttribute("aSeed", new THREE.BufferAttribute(seeds(n), 1));
-  nodes.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(n), 1));
-
-  return { surface, wire, nodes, base, posAttr: pos };
+  float tw = 0.85 + 0.15 * sin(uTime * 0.55 + aSeed * 14.0);
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  float z = max(1.8, -mv.z);
+  float boostSize = 1.0 + vPulseBoost * 1.1;
+  gl_PointSize = clamp(uSize * tw * boostSize * uPixelRatio * (85.0 / z), 1.0, 3.6);
+  gl_Position = projectionMatrix * mv;
+  float fog = 1.0 - smoothstep(24.0, 64.0, r);
+  vAlpha = (0.55 + 0.25 * tw + vPulseBoost * 0.95) * fog;
 }
+`;
 
-/** mesh3d atmosphere: dense floating particles + bright sky dots */
-function StarDome({ mouseRef }) {
+const goldFrag = /* glsl */ `
+uniform vec3 uGold;
+uniform sampler2D uMap;
+varying float vAlpha;
+varying float vPulseBoost;
+void main() {
+  vec4 m = texture2D(uMap, gl_PointCoord);
+  float a = m.a * vAlpha;
+  if (a < 0.03) discard;
+  vec3 col = uGold * (0.85 + 0.35 * m.r) + vec3(0.55, 0.35, 0.08) * vPulseBoost;
+  gl_FragColor = vec4(col, a);
+}
+`;
+
+/** Gold dot grid riding subtle relief + same 5s pulse wave */
+function GoldGrid({ mouse }) {
   const mat = useRef();
   const { gl } = useThree();
   const geo = useMemo(() => {
-    const near = 5200;
-    const far = 3800;
-    const n = near + far;
-    const positions = new Float32Array(n * 3);
-    const seedsArr = new Float32Array(n);
-    const bright = new Float32Array(n);
-
-    // Volume dust around the scene (clearly visible “stars” in space)
-    for (let i = 0; i < near; i++) {
-      const theta = Math.random() * Math.PI * 2;
-      const r = 2.5 + Math.random() * 28;
-      const y = 0.6 + Math.pow(Math.random(), 0.55) * 16;
-      positions[i * 3] = Math.cos(theta) * r + (Math.random() - 0.5) * 6;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = Math.sin(theta) * r + (Math.random() - 0.5) * 6;
-      seedsArr[i] = Math.random();
-      bright[i] = 0.55 + Math.random() * 0.9;
+    const pts = [];
+    const seeds = [];
+    const step = 0.95;
+    // cover full visible floor fade (matches velvet fog ~58)
+    const extent = 56;
+    for (let x = -extent; x <= extent; x += step) {
+      for (let z = -extent; z <= extent; z += step) {
+        const jx = (Math.sin(x * 12.9 + z * 4.1) * 0.5 + 0.5) * 0.2 - 0.1;
+        const jz = (Math.sin(z * 9.7 + x * 3.3) * 0.5 + 0.5) * 0.2 - 0.1;
+        const px = x + jx;
+        const pz = z + jz;
+        if (Math.hypot(px, pz) > 57.5) continue;
+        const h = heightAt(px, pz);
+        const py = FIELD_Y + 0.12 + h * 4.5;
+        pts.push(px, py, pz);
+        seeds.push(Math.abs(Math.sin(px * 7.1 + pz * 5.3)));
+      }
     }
-
-    // Far sky dome
-    for (let i = 0; i < far; i++) {
-      const j = near + i;
-      const theta = Math.random() * Math.PI * 2;
-      const elev = 0.12 + Math.pow(Math.random(), 0.7) * 0.88;
-      const phi = elev * Math.PI * 0.49;
-      const r = 32 + Math.random() * 55;
-      positions[j * 3] = r * Math.sin(phi) * Math.cos(theta);
-      positions[j * 3 + 1] = 4 + r * Math.cos(phi);
-      positions[j * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
-      seedsArr[j] = Math.random();
-      bright[j] = 0.75 + Math.random() * 1.1;
-    }
-
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    g.setAttribute("aSeed", new THREE.BufferAttribute(seedsArr, 1));
-    g.setAttribute("aBright", new THREE.BufferAttribute(bright, 1));
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pts), 3));
+    g.setAttribute("aSeed", new THREE.BufferAttribute(new Float32Array(seeds), 1));
     return g;
   }, []);
   const map = useMemo(() => makeDot(), []);
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
-      uSize: { value: 0.72 },
+      uSize: { value: 1.15 },
       uPixelRatio: { value: 1 },
+      uPulse: { value: 0 },
       uMouse: { value: new THREE.Vector3(99, 99, 99) },
-      uMouseStr: { value: 0.55 },
-      uColor: { value: new THREE.Color("#e8f5ec") },
+      uMouseStr: { value: 0.16 },
+      uGold: { value: new THREE.Color("#e8c06a") },
       uMap: { value: map },
     }),
     [map]
   );
   useFrame(({ clock }) => {
-    if (!mat.current || !mouseRef?.current) return;
-    mat.current.uniforms.uTime.value = clock.elapsedTime;
+    if (!mat.current || !mouse?.current) return;
+    const t = clock.elapsedTime;
+    mat.current.uniforms.uTime.value = t;
+    mat.current.uniforms.uPulse.value = pulsePhase(t);
     mat.current.uniforms.uPixelRatio.value = Math.min(gl.getPixelRatio(), 2);
-    mat.current.uniforms.uMouse.value.copy(mouseRef.current);
+    mat.current.uniforms.uMouse.value.copy(mouse.current);
   });
   return (
-    <points geometry={geo} frustumCulled={false} renderOrder={-1}>
+    <points geometry={geo} frustumCulled={false} renderOrder={2}>
       <shaderMaterial
         ref={mat}
-        vertexShader={starVert}
-        fragmentShader={starFrag}
+        vertexShader={goldVert}
+        fragmentShader={goldFrag}
         uniforms={uniforms}
         transparent
         depthWrite={false}
@@ -993,189 +1258,217 @@ function StarDome({ mouseRef }) {
   );
 }
 
-/** mesh3d field: surface + grid + glow particles, reacts to mouse */
-function FieldMesh({ mouse }) {
-  const surfaceMat = useRef();
-  const wireMat = useRef();
-  const nodeMat = useRef();
-  const dustMat = useRef();
-
-  const { surface, wire, nodes, base, posAttr, dust } = useMemo(() => {
-    const bundle = makeFieldBundle(62, 56, FIELD_Y);
-    const basePts = bundle.base;
-    const dustPts = [];
-    for (let i = 0; i < basePts.length / 3; i++) {
-      if (Math.random() > 0.55) continue;
-      const x = basePts[i * 3] + (Math.random() - 0.5) * 0.35;
-      const z = basePts[i * 3 + 2] + (Math.random() - 0.5) * 0.35;
-      const y = basePts[i * 3 + 1] + 0.02 + Math.random() * 0.08;
-      dustPts.push(x, y, z);
-    }
-    const dustArr = new Float32Array(dustPts);
-    const dn = dustArr.length / 3;
-    const dust = new THREE.BufferGeometry();
-    dust.setAttribute("position", new THREE.BufferAttribute(dustArr, 3));
-    dust.setAttribute("aScatter", new THREE.BufferAttribute(dustArr.slice(), 3));
-    dust.setAttribute("aSeed", new THREE.BufferAttribute(seeds(dn), 1));
-    dust.setAttribute("aAuger", new THREE.BufferAttribute(new Float32Array(dn), 1));
-    return { ...bundle, dust };
-  }, []);
-
-  const map = useMemo(() => makeDot(), []);
-  const nodeUniforms = useMemo(
-    () => ({
-      uReveal: { value: 1 },
-      uAuger: { value: 0 },
-      uTime: { value: 0 },
-      uMouse: { value: new THREE.Vector3(99, 99, 99) },
-      uSize: { value: 1.05 },
-      uMouseStr: { value: 0.42 },
-      uColor: { value: BRAND2 },
-      uMap: { value: map },
-    }),
-    [map]
-  );
-  const dustUniforms = useMemo(
-    () => ({
-      uReveal: { value: 1 },
-      uAuger: { value: 0 },
-      uTime: { value: 0 },
-      uMouse: { value: new THREE.Vector3(99, 99, 99) },
-      uSize: { value: 1.35 },
-      uMouseStr: { value: 0.48 },
-      uColor: { value: new THREE.Color("#7dff95") },
-      uMap: { value: map },
-    }),
-    [map]
-  );
-
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    const m = mouse.current;
-    const arr = posAttr.array;
-    for (let i = 0; i < posAttr.count; i++) {
-      const bx = base[i * 3];
-      const by = base[i * 3 + 1];
-      const bz = base[i * 3 + 2];
-      const dx = bx - m.x;
-      const dz = bz - m.z;
-      const d2 = dx * dx + dz * dz;
-      const push = Math.exp(-d2 * 0.12) * 0.55;
-      const lift = Math.exp(-d2 * 0.09) * 0.38;
-      arr[i * 3] = bx + dx * push * 0.08;
-      arr[i * 3 + 1] = by + lift + Math.sin(t * 1.1 + bx * 0.2 + bz * 0.15) * 0.012;
-      arr[i * 3 + 2] = bz + dz * push * 0.08;
-    }
-    posAttr.needsUpdate = true;
-
-    if (wireMat.current) wireMat.current.opacity = 0.16 + Math.sin(t * 0.4) * 0.03;
-    if (surfaceMat.current) surfaceMat.current.opacity = 0.14 + Math.sin(t * 0.25) * 0.02;
-    if (nodeMat.current) {
-      nodeMat.current.uniforms.uTime.value = t;
-      nodeMat.current.uniforms.uMouse.value.copy(m);
-    }
-    if (dustMat.current) {
-      dustMat.current.uniforms.uTime.value = t * 0.6;
-      dustMat.current.uniforms.uMouse.value.copy(m);
-    }
-  });
-
-  return (
-    <group>
-      <mesh geometry={surface} frustumCulled={false}>
-        <meshBasicMaterial
-          ref={surfaceMat}
-          color="#040a06"
-          transparent
-          opacity={0.16}
-          depthWrite={false}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      <lineSegments geometry={wire} frustumCulled={false}>
-        <lineBasicMaterial
-          ref={wireMat}
-          color="#2f9a40"
-          transparent
-          opacity={0.18}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </lineSegments>
-      <points geometry={nodes} frustumCulled={false}>
-        <shaderMaterial
-          ref={nodeMat}
-          vertexShader={vehicleVert}
-          fragmentShader={vehicleFrag}
-          uniforms={nodeUniforms}
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-          toneMapped={false}
-        />
-      </points>
-      <points geometry={dust} frustumCulled={false}>
-        <shaderMaterial
-          ref={dustMat}
-          vertexShader={vehicleVert}
-          fragmentShader={vehicleFrag}
-          uniforms={dustUniforms}
-          transparent
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-          toneMapped={false}
-        />
-      </points>
-    </group>
-  );
-}
-
-/** Thin far ring at horizon — does not cover the sky */
-function HorizonMesh() {
-  const wireMat = useRef();
-  const wire = useMemo(() => {
-    const segs = 96;
-    const rings = 3;
-    const positions = [];
-    const indices = [];
-    for (let r = 0; r <= rings; r++) {
-      const radius = 36 + r * 3.2;
-      const elev = FIELD_Y + 0.05 + (r / rings) * 0.55;
-      for (let i = 0; i <= segs; i++) {
-        const a = (i / segs) * Math.PI * 2;
-        const bump = Math.sin(a * 4 + r) * 0.12;
-        positions.push(Math.cos(a) * radius, elev + bump, Math.sin(a) * radius);
-      }
-    }
-    const stride = segs + 1;
-    for (let r = 0; r < rings; r++) {
-      for (let i = 0; i < segs; i++) {
-        const a = r * stride + i;
-        indices.push(a, a + 1, a, a + stride);
-      }
+/** Slow rising particles + 5s radial pulse */
+function AmbientField({ mouse }) {
+  const mat = useRef();
+  const { gl } = useThree();
+  const geo = useMemo(() => {
+    const n = 7500;
+    const positions = new Float32Array(n * 3);
+    const aSeed = new Float32Array(n);
+    const aTint = new Float32Array(n);
+    const aSpeed = new Float32Array(n);
+    const aCeil = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const r = Math.pow(Math.random(), 0.7) * 32;
+      positions[i * 3] = Math.cos(theta) * r;
+      positions[i * 3 + 1] = FIELD_Y;
+      positions[i * 3 + 2] = Math.sin(theta) * r;
+      aSeed[i] = Math.random();
+      aTint[i] = Math.random() < 0.48 ? Math.random() * 0.25 : 0.5 + Math.random() * 0.5;
+      aSpeed[i] = 0.01 + Math.random() * 0.014;
+      aCeil[i] = 4 + Math.random() * 10;
     }
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    g.setIndex(indices);
+    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    g.setAttribute("aSeed", new THREE.BufferAttribute(aSeed, 1));
+    g.setAttribute("aTint", new THREE.BufferAttribute(aTint, 1));
+    g.setAttribute("aSpeed", new THREE.BufferAttribute(aSpeed, 1));
+    g.setAttribute("aCeil", new THREE.BufferAttribute(aCeil, 1));
     return g;
   }, []);
+  const map = useMemo(() => makeDot(), []);
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uSize: { value: 0.78 },
+      uPixelRatio: { value: 1 },
+      uPulse: { value: 0 },
+      uMouse: { value: new THREE.Vector3(99, 99, 99) },
+      uMouseStr: { value: 0.12 },
+      uGreen: { value: new THREE.Color("#7ecf8a") },
+      uGray: { value: new THREE.Color("#8e959e") },
+      uMap: { value: map },
+    }),
+    [map]
+  );
   useFrame(({ clock }) => {
-    if (wireMat.current) wireMat.current.opacity = 0.1 + Math.sin(clock.elapsedTime * 0.35) * 0.02;
+    if (!mat.current || !mouse?.current) return;
+    const t = clock.elapsedTime;
+    mat.current.uniforms.uTime.value = t;
+    mat.current.uniforms.uPixelRatio.value = Math.min(gl.getPixelRatio(), 2);
+    mat.current.uniforms.uPulse.value = pulsePhase(t);
+    mat.current.uniforms.uMouse.value.copy(mouse.current);
   });
   return (
-    <lineSegments geometry={wire} frustumCulled={false}>
-      <lineBasicMaterial
-        ref={wireMat}
-        color="#1f6b2e"
+    <points geometry={geo} frustumCulled={false} renderOrder={-1}>
+      <shaderMaterial
+        ref={mat}
+        vertexShader={ambientVert}
+        fragmentShader={ambientFrag}
+        uniforms={uniforms}
         transparent
-        opacity={0.12}
         depthWrite={false}
+        depthTest={false}
+        fog={false}
+        blending={THREE.AdditiveBlending}
         toneMapped={false}
-        fog
       />
-    </lineSegments>
+    </points>
   );
 }
+
+/** Soft green night sky — follows camera, clearly readable haze */
+const skyVert = /* glsl */ `
+varying vec3 vDir;
+void main() {
+  vDir = normalize(position);
+  vec4 clip = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  // keep sky at far plane so it never clips
+  gl_Position = clip.xyww;
+}
+`;
+
+const skyFrag = /* glsl */ `
+uniform float uTime;
+varying vec3 vDir;
+
+float hash21(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+float noise21(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i);
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 5; i++) {
+    v += a * noise21(p);
+    p = p * 2.08 + vec2(1.3, 4.7);
+    a *= 0.5;
+  }
+  return v;
+}
+
+void main() {
+  vec3 d = normalize(vDir);
+  float h = d.y;
+
+  // must match velvet skyHaze so the rim disappears
+  vec3 groundMatch = vec3(0.055, 0.105, 0.068);
+  vec3 horizon = vec3(0.07, 0.13, 0.085);
+  vec3 zenith = vec3(0.12, 0.24, 0.15);
+
+  vec3 col = mix(groundMatch, horizon, smoothstep(-0.2, 0.22, h));
+  col = mix(col, zenith, smoothstep(0.12, 0.78, h));
+
+  vec2 uv = d.xz * (1.35 / max(0.18, abs(d.y) + 0.4));
+  float t = uTime * 0.07;
+
+  float n1 = fbm(uv * 1.15 + vec2(t * 0.75, -t * 0.4));
+  float n2 = fbm(uv * 2.5 - vec2(t * 0.4, t * 0.55) + 4.2);
+  float n3 = fbm(uv * 0.5 + vec2(-t * 0.22, t * 0.15) + 1.7);
+  float clouds = smoothstep(0.28, 0.75, n1 * 0.55 + n2 * 0.45);
+  clouds *= mix(0.55, 1.25, n3);
+
+  // detail only well above horizon
+  float skyMask = smoothstep(0.12, 0.5, h);
+
+  float streak = fbm(vec2(d.x * 2.0 + t * 0.35, d.z * 0.45 + h * 2.8 - t * 0.28));
+  streak = pow(smoothstep(0.4, 0.88, streak), 1.25) * skyMask;
+
+  vec3 mint = vec3(0.14, 0.38, 0.2);
+  vec3 lime = vec3(0.22, 0.5, 0.24);
+  vec3 teal = vec3(0.1, 0.34, 0.28);
+  col += mint * clouds * skyMask * 1.0;
+  col += lime * streak * 0.65;
+  col += teal * clouds * streak * 0.4;
+  col += vec3(0.04, 0.09, 0.055) * smoothstep(0.18, 0.7, h);
+
+  float stars = step(0.988, hash21(floor(d.xy * 130.0))) * smoothstep(0.35, 0.75, h);
+  col += vec3(0.4, 0.65, 0.45) * stars * 0.5;
+
+  // wide vertical dissolve into ground haze
+  float seam = smoothstep(-0.4, 0.32, h);
+  col = mix(groundMatch, col, seam);
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+function SkyDome() {
+  const mesh = useRef();
+  const mat = useRef();
+  const uniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
+  useFrame(({ camera, clock }) => {
+    if (mesh.current) mesh.current.position.copy(camera.position);
+    if (mat.current) mat.current.uniforms.uTime.value = clock.elapsedTime;
+  });
+  return (
+    <mesh ref={mesh} frustumCulled={false} renderOrder={-30}>
+      <sphereGeometry args={[1, 48, 28]} />
+      <shaderMaterial
+        ref={mat}
+        vertexShader={skyVert}
+        fragmentShader={skyFrag}
+        uniforms={uniforms}
+        side={THREE.BackSide}
+        depthWrite={false}
+        depthTest={false}
+        fog={false}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
+/** Dark velvet ground with projected light waves */
+function FieldMesh() {
+  const mat = useRef();
+  const geo = useMemo(() => {
+    const g = new THREE.PlaneGeometry(120, 120, 100, 100);
+    g.rotateX(-Math.PI / 2);
+    return g;
+  }, []);
+  const uniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
+  useFrame(({ clock }) => {
+    if (mat.current) mat.current.uniforms.uTime.value = clock.elapsedTime;
+  });
+  return (
+    <mesh geometry={geo} position={[0, FIELD_Y, 0]} frustumCulled={false}>
+      <shaderMaterial
+        ref={mat}
+        vertexShader={velvetVert}
+        fragmentShader={velvetFrag}
+        uniforms={uniforms}
+        transparent={false}
+        depthWrite={true}
+        side={THREE.DoubleSide}
+        toneMapped={false}
+        fog={false}
+      />
+    </mesh>
+  );
+}
+
 
 function CameraRig({ progressRef }) {
   const pos = useRef(new THREE.Vector3());
@@ -1214,7 +1507,7 @@ function MousePlane({ mouse }) {
   const hit = useMemo(() => new THREE.Vector3(), []);
   useFrame(() => {
     ray.setFromCamera(pointer, camera);
-    if (ray.ray.intersectPlane(plane, hit)) mouse.current.lerp(hit, 0.1);
+    if (ray.ray.intersectPlane(plane, hit)) mouse.current.lerp(hit, 0.22);
   });
   return null;
 }
@@ -1241,7 +1534,7 @@ function useCloud(name, factor) {
 }
 
 export default function World({ progressRef }) {
-  const factor = typeof window !== "undefined" && window.innerWidth < 820 ? 0.42 : 1;
+  const factor = typeof window !== "undefined" && window.innerWidth < 820 ? 0.62 : 1;
   const combine = useCloud("combine", factor);
   const truck = useCloud("truck", factor);
   const mouse = useRef(new THREE.Vector3(40, 0, 40));
@@ -1261,6 +1554,7 @@ export default function World({ progressRef }) {
   const tagUnlock = useRef(0);
   const augerReveal = useRef(0);
   const augerDeploy = useRef(0);
+  const endDissolve = useRef(0);
 
   const truckFarGroup = useRef();
   const truckNearGroup = useRef();
@@ -1272,7 +1566,7 @@ export default function World({ progressRef }) {
     else combineReveal.current = 1;
 
     truckFarReveal.current = smooth(range(p, 0.28, 0.4)) * (1 - smooth(range(p, 0.52, 0.56)));
-    truckNearReveal.current = smooth(range(p, 0.8, 0.88));
+    truckNearReveal.current = smooth(range(p, 0.8, 0.86));
 
     terminalVis.current = smooth(range(p, 0.08, 0.11)) * (1 - smooth(range(p, 0.12, 0.14)));
     lockMarkerVis.current = smooth(range(p, 0.15, 0.18)) * (1 - smooth(range(p, 0.74, 0.78)));
@@ -1287,8 +1581,12 @@ export default function World({ progressRef }) {
     pressed.current = smooth(range(p, 0.48, 0.51));
     cardAccepted.current = smooth(range(p, 0.62, 0.65)) * (1 - smooth(range(p, 0.7, 0.73)));
 
-    augerReveal.current = smooth(range(p, 0.82, 0.86));
-    augerDeploy.current = smooth(range(p, 0.86, 0.92)) * (0.55 + smooth(range(p, 0.92, 0.97)) * 0.45);
+    augerReveal.current = smooth(range(p, 0.78, 0.83));
+    augerDeploy.current =
+      smooth(range(p, 0.82, 0.88)) * (0.55 + smooth(range(p, 0.88, 0.92)) * 0.45);
+
+    // end explosion only — does not affect start assemble
+    endDissolve.current = smooth(range(p, 0.925, 0.995));
 
     if (truckFarGroup.current) truckFarGroup.current.visible = truckFarReveal.current > 0.02;
     if (truckNearGroup.current) truckNearGroup.current.visible = truckNearReveal.current > 0.02;
@@ -1296,13 +1594,14 @@ export default function World({ progressRef }) {
 
   return (
     <>
-      <color attach="background" args={["#05070a"]} />
-      <fog attach="fog" args={["#05070a", 48, 110]} />
+      <color attach="background" args={["#0e1b12"]} />
+      <fog attach="fog" args={["#0e1b12", 55, 125]} />
       <CameraRig progressRef={progressRef} />
       <MousePlane mouse={mouse} />
-      <StarDome mouseRef={mouse} />
-      <FieldMesh mouse={mouse} />
-      <HorizonMesh />
+      <SkyDome />
+      <AmbientField mouse={mouse} />
+      <FieldMesh />
+      <GoldGrid mouse={mouse} />
       <Shockwave origin={COMBINE} progressRef={progressRef} t0={0.19} t1={0.32} tFade={0.38} />
       <Shockwave origin={TRUCK_FAR} progressRef={progressRef} t0={0.52} t1={0.58} tFade={0.62} maxDist={WAVE_DIST * 0.85} />
 
@@ -1310,25 +1609,37 @@ export default function World({ progressRef }) {
         {combine && (
           <VehicleCloud
             positions={combine.positions}
-            color={BRAND}
+            color={VEHICLE}
             reveal={combineReveal}
             mouse={mouse}
-            size={2.45}
+            size={2.35}
+            maskAuger
+            augerHide={augerReveal}
+            dissolve={endDissolve}
           />
         )}
         <MarkerCluster local={TERMINAL_LOCAL} color={NAV} visible={terminalVis} radius={0.06} count={360} size={0.048} />
-        <MarkerCluster local={AUGER_LOCK_LOCAL} color={LOCK} visible={lockMarkerVis} radius={0.055} count={340} size={0.046} />
-        <AugerPipe reveal={augerReveal} deploy={augerDeploy} mouse={mouse} />
+        <MarkerCluster
+          local={AUGER_LOCK_LOCAL}
+          color={LOCK}
+          visible={lockMarkerVis}
+          radius={0.042}
+          count={90}
+          size={0.052}
+          blending={THREE.NormalBlending}
+          opacityMul={0.95}
+        />
+        <AugerPipe reveal={augerReveal} deploy={augerDeploy} mouse={mouse} dissolve={endDissolve} />
       </group>
 
       <group ref={truckFarGroup} position={TRUCK_FAR.toArray()} rotation={[0, TRUCK_FAR_YAW, 0]}>
         {truck && (
           <VehicleCloud
             positions={truck.positions}
-            color={new THREE.Color("#6ee07a")}
+            color={VEHICLE2}
             reveal={truckFarReveal}
             mouse={mouse}
-            size={2.4}
+            size={2.45}
             scatterR={8.8}
             waveScatter
           />
@@ -1339,11 +1650,12 @@ export default function World({ progressRef }) {
         {truck && (
           <VehicleCloud
             positions={truck.positions}
-            color={new THREE.Color("#6ee07a")}
+            color={VEHICLE2}
             reveal={truckNearReveal}
             mouse={mouse}
-            size={2.15}
+            size={2.4}
             scatterR={3.6}
+            dissolve={endDissolve}
           />
         )}
       </group>

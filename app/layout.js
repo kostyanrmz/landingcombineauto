@@ -1,12 +1,13 @@
 import "../styles.css";
 
 export const metadata = {
-  title: "Combine Auto — учёт зерна на уборке",
+  title: "Combine Auto — система «свой / чужой» на уборке",
   description:
-    "Комбайн, КамАЗ и весовая в одной цепочке. Шнек открывается только после подтверждения, работа в поле без интернета, QR рейса на весовой.",
+    "Зерно уезжает только на подтверждённую технику. Обмен по Wi‑Fi между телефонами, Bluetooth к GPS-терминалу, автоприём у перевозчика, QR рейса на весовой.",
   openGraph: {
-    title: "Combine Auto — учёт зерна на уборке",
-    description: "Каждая выгрузка фиксируется. Шнек под контролем. Поле работает без сети.",
+    title: "Combine Auto — система «свой / чужой» на уборке",
+    description:
+      "Контроль выгрузки: перевозчик подтверждает приём и разблокирует шнек. Работа в поле без интернета.",
     locale: "ru_RU",
     type: "website",
     images: ["/assets/hero-field.jpg"],
@@ -24,7 +25,7 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
-          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
